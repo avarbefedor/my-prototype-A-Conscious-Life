@@ -1,0 +1,359 @@
+Ниже структура в формате «Frame / Section / Elements», чтобы можно было по строкам собирать прототип в Figma/Figma Make.
+
+***
+
+## 1. Главный фрейм приложения
+
+**Frame: App / Root**  
+- Elements:  
+  - Bottom Nav Bar  
+  - Content Area (для текущей вкладки)
+
+***
+
+## 2. Нижняя навигация
+
+**Frame: Bottom Nav Bar**  
+- Elements:  
+  - Tab Item: Сегодня (icon: home/day)  
+  - Tab Item: Лента (icon: list/calendar)  
+  - Tab Item: Инсайты (icon: graph/bulb)  
+  - Tab Item: Профиль (icon: user)
+
+***
+
+## 3. Вкладка «Сегодня»
+
+**Frame: Screen / Today**  
+- Sections:  
+  - Header  
+  - Section: Quick Metrics  
+  - Section: Actions  
+  - Section: Virtues & Archetypes  
+  - Section: Reflection  
+  - Section: Save Button
+
+### 3.1 Header
+
+**Section: Header**  
+- Elements:  
+  - Text: «Сегодня»  
+  - Text (subtitle): «17 марта 2026» (динамическая дата)
+
+### 3.2 Quick Metrics
+
+**Section: Quick Metrics**  
+- Elements (можно как три карточки в ряд или вертикально):
+
+  - Card: Сон  
+    - Label: «Сон»  
+    - Input (numeric): «часы сна»  
+    - Optional: Slider 1–5 — «Качество сна»
+
+  - Card: Настроение  
+    - Label: «Настроение»  
+    - Slider 1–10  
+    - Helper text: «1 — очень плохо, 10 — отлично»
+
+  - Card: Энергия (опционально)  
+    - Label: «Энергия»  
+    - Slider 1–10
+
+### 3.3 Actions
+
+**Section: Actions**  
+- Elements:
+
+  - Group: Работа  
+    - Toggle: «Работал сегодня»  
+    - When ON: Segmented control: [Work-, Work, Work+]
+
+  - Group: Тренировка  
+    - Toggle: «Тренировка»  
+    - When ON: Segmented control: [TR-, TR, TR+]
+
+  - Group: Шаги  
+    - Label: «Шаги»  
+    - Input (numeric): «Количество шагов»
+
+  - Group: Питание  
+    - Label: «Калории»  
+    - Input (numeric): «Ккал съел»  
+    - Optional small inputs: «Б», «Ж», «У»
+
+  - Group: События / Теги (в виде иконок + подписи, чекбоксы/тогглы)  
+    - Toggle: «Алкоголь»  
+    - Toggle: «Жор»  
+    - Toggle: «ПА»  
+    - Toggle: «ПМ»  
+    - Toggle: «Курение»  
+    - Toggle: «Другие» (можно оставить как placeholder)
+
+### 3.4 Virtues & Archetypes
+
+**Section: Virtues & Archetypes**  
+- Elements:
+
+  - Field: «Добродетель дня»  
+    - Dropdown: [Мудрость, Умеренность, Мужество, Справедливость, Нет]  
+  - Field: «Как проявлялась?»  
+    - Textarea (1–2 строки, маленькая)
+
+  - Field: «Главный архетип дня»  
+    - Dropdown: [Мудрец, Правитель, Герой, Искатель]  
+  - Field: «Вторичный архетип» (optional)  
+    - Dropdown: те же варианты
+
+### 3.5 Reflection
+
+**Section: Reflection**  
+- Elements:  
+  - Label: «Почему день был таким?»  
+  - Textarea (multi-line, высота побольше)  
+    - Placeholder: «Ключевые события, эмоции, выводы…»
+
+### 3.6 Save Button
+
+**Section: Save Button**  
+- Elements:  
+  - Primary Button (full width): «Сохранить день»
+
+***
+
+## 4. Вкладка «Лента»
+
+**Frame: Screen / Feed**  
+- Sections:  
+  - Header  
+  - Tabs: Week / Month / Year  
+  - Section: Week View  
+  - Section: Month View (можно отдельный frame)  
+
+### 4.1 Header
+
+**Section: Header**  
+- Elements:  
+  - Text: «Лента»  
+  - Optional: Small subtitle: «История дней»
+
+### 4.2 Tabs
+
+**Section: Period Tabs**  
+- Elements:  
+  - Segmented control: [Неделя, Месяц, Год]
+
+### 4.3 Week View
+
+**Frame: Feed / Week View**  
+- Elements:  
+  - Horizontal scroll list: 7 карточек Day Summary
+
+**Component: Day Summary Card (Week)**  
+- Elements:  
+  - Text: «Пн 10» (дата + день недели)  
+  - Circle badge: значение настроения (цифра внутри, цвет по шкале)  
+  - Row of small icons:  
+    - гантель (тренировка),  
+    - бокал (алкоголь),  
+    - вилка (жор),  
+    - луна/будильник (мало сна).
+
+При клике → навигация на **Screen / Day Details**.
+
+### 4.4 Month View
+
+**Frame: Feed / Month View**  
+- Elements (варианты):  
+  - Option A: календарная сетка  
+    - Ячейка дня: номер + маленький цветной индикатор настроения + иконки событий.  
+  - Option B: вертикальный список дней (похож на Week Card, но для 30+ дней).
+
+**Section: Month Summary (внизу)**  
+- Elements:  
+  - Text: «Итоги месяца»  
+  - Row of KPIs:  
+    - «Среднее настроение»  
+    - «Средний сон»  
+    - «Всего шагов»  
+    - «Дней с тренировкой»  
+    - «Дней с алкоголем»
+
+***
+
+## 5. Вкладка «Инсайты»
+
+**Frame: Screen / Insights**  
+- Sections:  
+  - Header  
+  - Filters  
+  - Insights List
+
+### 5.1 Header
+
+**Section: Header**  
+- Elements:  
+  - Text: «Инсайты»  
+  - Subtitle: «Что заметила система»
+
+### 5.2 Filters
+
+**Section: Filters**  
+- Elements (pill buttons):  
+  - Button: «Все»  
+  - Button: «Сон»  
+  - Button: «Тело»  
+  - Button: «Психика»  
+  - Button: «Продуктивность»  
+  - Button: «Отношения»
+
+### 5.3 Insights List
+
+**Frame: Insights / List**  
+- Elements:  
+  - Vertical list of **Insight Card** components.
+
+**Component: Insight Card**  
+- Elements:  
+  - Title: краткое утверждение  
+    - Example: «Недосып → жор и плохое настроение»  
+  - Subtitle: пояснение  
+    - Example: «В 80% дней с < 6 ч сна на следующий день было настроение ≤ 5 и включен тег “Жор”.»  
+  - Mini-chart placeholder (rectangle):  
+    - Подпись: «График сна и настроения»  
+  - Small text link / button: «Подробнее»
+
+При клике → **Screen / Insight Details**.
+
+***
+
+## 6. Экран «Подробный инсайт»
+
+**Frame: Screen / Insight Details**  
+- Elements:  
+  - Header: Back button + Title инсайта  
+  - Text block: описание инсайта  
+  - Chart block: большой график (placeholder)  
+  - Section: «Что с этим делать?»  
+    - Text: совет/рекомендация, связанная с добродетелями/архетипами  
+      - Example:  
+        - «Это зона Умеренности (сон). Попробуй неделю держать 7–8 часов сна и сравни.»
+
+***
+
+## 7. Вкладка «Профиль»
+
+**Frame: Screen / Profile**  
+- Sections:  
+  - Header  
+  - Section: User Info  
+  - Section: Goals  
+  - Section: Archetypes  
+  - Section: Virtues  
+  - Section: Settings
+
+### 7.1 Header
+
+**Section: Header**  
+- Elements:  
+  - Text: «Профиль»
+
+### 7.2 User Info
+
+**Section: User Info**  
+- Elements:  
+  - Avatar (placeholder circle)  
+  - Text: Имя  
+  - Optional: возраст
+
+### 7.3 Goals
+
+**Section: Goals**  
+- Title: «Цели»  
+- Checkbox list:  
+  - «Вес и тело»  
+  - «Настроение и психика»  
+  - «Продуктивность и работа»  
+  - «Отношения»  
+  - «Курение/алкоголь»
+
+### 7.4 Archetypes
+
+**Section: Archetypes**  
+- Title: «Архетипы»  
+- Cards for each archetype:
+
+**Component: Archetype Card**  
+- Title: «Мудрец (The Sage) — 40%»  
+- Bullet list (2–3 пункта):  
+  - «Рефлексия и анализ»  
+  - «Поиск причинно‑следственных связей»  
+  - «Философская основа решений»
+
+Аналогично для:
+- Правитель — 25%  
+- Герой — 20%  
+- Искатель — 15%
+
+Можно добавить:
+- Small slider (disabled, purely visual): показывает процент.
+
+### 7.5 Virtues
+
+**Section: Virtues**  
+- Title: «Добродетели»  
+- List of four items:
+
+Each item:
+- Title: «Мудрость»  
+- Short description: «видеть реальность ясно, принимать обдуманные решения»
+
+Ниже:
+- Toggle: «Показывать выбор добродетели дня на экране "Сегодня"»
+
+### 7.6 Settings
+
+**Section: Settings**  
+- Title: «Настройки»  
+- Toggle: «Напоминать заполнять день в 21:00»  
+- Toggle: «Подключить трекер шагов (заглушка)»  
+- Toggle: «Подключить трекер сна (заглушка)»
+
+***
+
+## 8. Экран «Детали дня»
+
+**Frame: Screen / Day Details**  
+(Можно сделать отдельным фреймом, но логика та же, что у «Сегодня».)
+
+- Sections:  
+  - Header  
+  - Quick Metrics (read‑only или editable)  
+  - Actions  
+  - Virtues & Archetypes  
+  - Reflection  
+  - Buttons
+
+**Section: Header**  
+- Elements:  
+  - Back button  
+  - Text: «День»  
+  - Subtext: «10 ноября 2025, сб»  
+  - Status badge: «Заполнено» / «Черновик»
+
+**Section: Buttons**  
+- Button: «Редактировать» (если изначально режим просмотра)  
+- Secondary button: «Скопировать значения на сегодня»
+
+***
+
+Этого описания обычно хватает, чтобы:
+
+- создать фреймы:  
+  - `Screen / Today`  
+  - `Screen / Feed`  
+  - `Screen / Insights`  
+  - `Screen / Insight Details`  
+  - `Screen / Profile`  
+  - `Screen / Day Details`  
+
+- внутри каждого фрейма создать отдельные авто‑layout секции и компоненты (`Day Summary Card`, `Insight Card`, `Archetype Card`), а потом уже их детализировать по визуалу.

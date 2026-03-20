@@ -1,0 +1,61 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes jiggle {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+
+.jiggle {
+  animation: jiggle 0.25s ease-in-out infinite alternate;
+}
+
+.jiggle:nth-child(2n) {
+  animation-delay: 0.1s;
+}
+
+.jiggle:nth-child(3n) {
+  animation-delay: 0.05s;
+  animation-duration: 0.3s;
+}
+
+/* Emoji Mart overrides */
+em-emoji-picker {
+  --em-rgb-background: 255, 255, 255;
+  --em-rgb-input: 240, 240, 238;
+  --em-rgb-color: 26, 26, 46;
+  --border-radius: 0;
+  border: none !important;
+  width: 100% !important;
+  max-height: 42vh;
+}
+
+/* react-colorful overrides */
+.color-picker-wrapper .react-colorful {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.color-picker-wrapper .react-colorful__saturation {
+  border-radius: 12px 12px 0 0;
+}
+
+.color-picker-wrapper .react-colorful__hue {
+  height: 14px;
+  border-radius: 0 0 12px 12px;
+}
+
+.color-picker-wrapper .react-colorful__pointer {
+  width: 20px;
+  height: 20px;
+  border-width: 3px;
+}
