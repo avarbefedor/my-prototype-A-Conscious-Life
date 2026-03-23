@@ -14,17 +14,24 @@ export interface MoodSnapshot {
   comment?: string;
 }
 
-export type EventIntensity = 'weak' | 'normal' | 'strong';
+export type EventMultiplier = 1 | 2 | 3 | 5 | 10;
 
 export interface EventEntry {
   eventId: string;
-  intensity: EventIntensity;
+  multiplier: EventMultiplier;
+  description?: string;
+}
+
+export interface EventGroup {
+  id: string;
+  label: string;
 }
 
 export interface EventType {
   id: string;
   label: string;
   emoji: string;
+  groupId?: string;
 }
 
 export interface DayLog {
@@ -96,17 +103,22 @@ export const DEFAULT_ACTIVITIES: ActivityType[] = [
 /** @deprecated Use useActivities() hook instead */
 export const ACTIVITIES = DEFAULT_ACTIVITIES;
 
+export const DEFAULT_EVENT_GROUPS: EventGroup[] = [
+  { id: 'negative', label: 'Вредное' },
+  { id: 'positive', label: 'Хорошее' },
+];
+
 export const DEFAULT_EVENT_TAGS: EventType[] = [
-  { id: 'alcohol', label: 'Алкаголь', emoji: '🍷' },
-  { id: 'binge', label: 'Жор', emoji: '🍔' },
-  { id: 'panic', label: 'ПА', emoji: '😰' },
-  { id: 'pm', label: 'ПМ', emoji: '💭' },
-  { id: 'smoking', label: 'Курение', emoji: '🚬' },
-  { id: 'conflict', label: 'Конфликт', emoji: '⚡' },
-  { id: 'good_news', label: 'Хорошая новость', emoji: '🎉' },
-  { id: 'bad_news', label: 'Плохая новость', emoji: '😞' },
-  { id: 'insight', label: 'Озарение', emoji: '💡' },
-  { id: 'gratitude', label: 'Благодарность', emoji: '🙏' },
+  { id: 'alcohol', label: 'Алкоголь', emoji: '🍷', groupId: 'negative' },
+  { id: 'binge', label: 'Жор', emoji: '🍔', groupId: 'negative' },
+  { id: 'panic', label: 'ПА', emoji: '😰', groupId: 'negative' },
+  { id: 'pm', label: 'ПМ', emoji: '💭', groupId: 'negative' },
+  { id: 'smoking', label: 'Курение', emoji: '🚬', groupId: 'negative' },
+  { id: 'conflict', label: 'Конфликт', emoji: '⚡', groupId: 'negative' },
+  { id: 'bad_news', label: 'Плохая новость', emoji: '😞', groupId: 'negative' },
+  { id: 'good_news', label: 'Хорошая новость', emoji: '🎉', groupId: 'positive' },
+  { id: 'insight', label: 'Озарение', emoji: '💡', groupId: 'positive' },
+  { id: 'gratitude', label: 'Благодарность', emoji: '🙏', groupId: 'positive' },
 ];
 
 /** @deprecated Use useEvents() hook instead */

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTheme } from 'next-themes';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Target, Shield, Bell, Smartphone, Moon as MoonIcon, Settings, Sliders, Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, Check, GripVertical } from 'lucide-react';
 import { ARCHETYPES, VIRTUES, ACTIVITIES } from '../data/types';
@@ -43,6 +44,8 @@ const EMOJI_OPTIONS = [
 export function ProfilePage() {
   const { days } = useDays();
   const { activities, addActivity, updateActivity, deleteActivity, reorderActivities } = useActivities();
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === 'dark';
   const [name, setName] = useState('Пользователь');
   const [selectedGoals, setSelectedGoals] = useState(['mood', 'productivity']);
   const [showVirtues, setShowVirtues] = useState(true);
@@ -515,8 +518,8 @@ export function ProfilePage() {
             <Settings className="w-5 h-5 text-gray-500" />
             <span className="text-sm">Настройки</span>
           </div>
+          <SettingRow icon={<MoonIcon className="w-4 h-4" />} label="Тёмная тема" enabled={isDark} onToggle={() => setTheme(isDark ? 'light' : 'dark')} />
           <SettingRow icon={<Smartphone className="w-4 h-4" />} label="Подключить трекер шагов" />
-          <SettingRow icon={<MoonIcon className="w-4 h-4" />} label="Подключить трекер сна" />
           <SettingRow icon={<Bell className="w-4 h-4" />} label="Напоминание в 21:00" enabled={remindTime} onToggle={() => setRemindTime(!remindTime)} />
         </div>
       </div>
