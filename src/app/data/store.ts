@@ -1,11 +1,27 @@
 import { useState, useCallback, useEffect } from 'react';
-import { DayLog, ActivityEntry, MoodSnapshot, DEFAULT_ACTIVITIES, ActivityType, DEFAULT_EVENT_TAGS, EventType, EventMultiplier, EventGroup, DEFAULT_EVENT_GROUPS } from './types';
+import { DayLog, ActivityEntry, MoodSnapshot, DEFAULT_ACTIVITIES, ActivityType, DEFAULT_EVENT_TAGS, EventType, EventMultiplier, EventGroup, DEFAULT_EVENT_GROUPS, LensValue, BUILT_IN_LENSES, ACT_VALUES_BANK } from './types';
 import { initialDays } from './mockData';
 
 // Simple global store
 let days: DayLog[] = [...initialDays];
 let activeActivities: Set<string> = new Set(); // multi-select
 let listeners: Set<() => void> = new Set();
+
+// Lens store
+let userActiveLenses: string[] = ['stoic-virtues', 'jungian'];
+let userLensAnchors: Record<string, string[]> = {
+  'act-values': ['closeness', 'creativity', 'health', 'honesty', 'growth'],
+};
+let lensListeners: Set<() => void> = new Set();
+
+function notifyLenses() {
+  lensListeners.forEach((l) => l());
+}
+
+// All layers unlocked for prototype
+export function isLayerUnlocked(_layerId: 'patterns' | 'energy' | 'lenses'): boolean {
+  return true;
+}
 
 // Custom activities store
 let customActivities: ActivityType[] = [...DEFAULT_ACTIVITIES];
@@ -292,7 +308,7 @@ export function useDays() {
   // Legacy alias
   const startActivity = toggleActivity;
 
-  const addMoodSnapshot = useCallback((mood: number, energy: number, comment?: string) => {
+  const addMoodSnapshot = useCallback((mood: number, energy: number, comment?: string, trigger?: MoodSnapshot['trigger']) => {
     const today = getOrCreateToday();
     const snapshot: MoodSnapshot = {
       id: generateId(),
@@ -300,6 +316,7 @@ export function useDays() {
       mood,
       energy,
       comment: comment || undefined,
+      trigger,
     };
     saveDay({
       ...today,
@@ -394,6 +411,59 @@ export function useDays() {
   };
 }
 
+// ---- Lenses store ----
+export function useLenses() {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const listener = () => setTick((t) => t + 1);
+    lensListeners.add(listener);
+    return () => { lensListeners.delete(listener); };
+  }, []);
+
+  const setActiveLenses = useCallback((ids: string[]) => {
+    userActiveLenses = ids;
+    notifyLenses();
+  }, []);
+
+  const toggleLens = useCallback((id: string) => {
+    userActiveLenses = userActiveLenses.includes(id)
+      ? userActiveLenses.filter((l) => l !== id)
+      : [...userActiveLenses, id];
+    notifyLenses();
+  }, []);
+
+  const setLensAnchors = useCallback((lensId: string, anchorIds: string[]) => {
+    userLensAnchors = { ...userLensAnchors, [lensId]: anchorIds };
+    notifyLenses();
+  }, []);
+
+  const getActiveLenses = () =>
+    BUILT_IN_LENSES.filter((l) => userActiveLenses.includes(l.id));
+
+  const getEffectiveLens = (lensId: string) => {
+    const lens = BUILT_IN_LENSES.find((l) => l.id === lensId);
+    if (!lens) return null;
+    if (lensId === 'act-values' && userLensAnchors['act-values']?.length > 0) {
+      const selectedAnchors = ACT_VALUES_BANK
+        .filter((v) => userLensAnchors['act-values'].includes(v.id))
+        .map((v) => ({ id: v.id, name: v.name, description: '', emoji: v.emoji, color: '#10b981' }));
+      return { ...lens, anchors: selectedAnchors.length > 0 ? selectedAnchors : lens.anchors };
+    }
+    return lens;
+  };
+
+  return {
+    activeLensIds: userActiveLenses,
+    lensAnchors: userLensAnchors,
+    activeLenses: getActiveLenses(),
+    setActiveLenses,
+    toggleLens,
+    setLensAnchors,
+    getEffectiveLens,
+  };
+}
+
 export function getStreak(): number {
   let streak = 0;
   const today = new Date();
@@ -433,4 +503,196 @@ export function detectArchetype(day: DayLog): string {
 
   const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
   return sorted[0][0];
+}
+
+// ---- Pattern computation ----
+export function computePatterns(sourceDays: DayLog[]): import('./types').Insight[] {
+  const MIN_OBSERVATIONS = 7;
+  const complete = sourceDays.filter((d) => d.status === 'complete').sort((a, b) => a.date.localeCompare(b.date));
+  if (complete.length < MIN_OBSERVATIONS) return [];
+
+  const insights: import('./types').Insight[] = [];
+  let idCounter = 900;
+
+  // Pattern 1: event[X] → next-day mood delta
+  const eventPool = ['alcohol', 'binge', 'conflict', 'smoking', 'panic'];
+  for (const eventId of eventPool) {
+    const withEvent: number[] = [];
+    const withoutEvent: number[] = [];
+    for (let i = 0; i < complete.length - 1; i++) {
+      const hasEvent = complete[i].events.some((e) => e.eventId === eventId);
+      const nextMood = complete[i + 1].mood;
+      if (hasEvent) withEvent.push(nextMood);
+      else withoutEvent.push(nextMood);
+    }
+    if (withEvent.length < 4) continue;
+    const avgWith = withEvent.reduce((s, v) => s + v, 0) / withEvent.length;
+    const avgWithout = withoutEvent.length > 0
+      ? withoutEvent.reduce((s, v) => s + v, 0) / withoutEvent.length
+      : 6;
+    const delta = avgWithout - avgWith;
+    if (Math.abs(delta) >= 1.0) {
+      const strength = Math.min(1, Math.abs(delta) / 4);
+      insights.push({
+        id: String(++idCounter),
+        title: `«${eventId}» → настроение −${delta.toFixed(1)} на следующий день`,
+        description: `В ${withEvent.length} случаях после события «${eventId}» настроение на следующий день было ниже на ${delta.toFixed(1)} пункта.`,
+        category: 'psyche',
+        layer: 'patterns',
+        strength,
+        observationCount: withEvent.length,
+        advice: 'Отследи, как это событие влияет на твой завтрашний день. Можно предупредить последствия.',
+        chartData: [
+          { name: 'С событием', value1: Math.round(avgWith * 10) / 10 },
+          { name: 'Без', value1: Math.round(avgWithout * 10) / 10 },
+        ],
+      });
+    }
+  }
+
+  // Pattern 2: sleep < 6 → lower mood
+  const shortSleepMoods: number[] = [];
+  const normalSleepMoods: number[] = [];
+  complete.forEach((d) => {
+    if (d.sleep.hours < 6) shortSleepMoods.push(d.mood);
+    else normalSleepMoods.push(d.mood);
+  });
+  if (shortSleepMoods.length >= 4 && normalSleepMoods.length >= 4) {
+    const avgShort = shortSleepMoods.reduce((s, v) => s + v, 0) / shortSleepMoods.length;
+    const avgNormal = normalSleepMoods.reduce((s, v) => s + v, 0) / normalSleepMoods.length;
+    const delta = avgNormal - avgShort;
+    if (delta >= 0.8) {
+      insights.push({
+        id: String(++idCounter),
+        title: `Сон < 6ч → настроение −${delta.toFixed(1)}`,
+        description: `При сне менее 6 часов настроение в среднем на ${delta.toFixed(1)} пункта ниже, чем при нормальном сне.`,
+        category: 'sleep',
+        layer: 'patterns',
+        strength: Math.min(1, delta / 4),
+        observationCount: shortSleepMoods.length,
+        advice: 'Попробуй неделю придерживаться коридора 7–8 часов и сравни результат.',
+        chartData: [
+          { name: '< 6ч', value1: Math.round(avgShort * 10) / 10 },
+          { name: '≥ 6ч', value1: Math.round(avgNormal * 10) / 10 },
+        ],
+      });
+    }
+  }
+
+  // Pattern 3: activity X → mood delta (same day)
+  const activityPool = ['sport', 'walking', 'meditation', 'social_media', 'entertainment'];
+  for (const actId of activityPool) {
+    const withAct: number[] = [];
+    const withoutAct: number[] = [];
+    complete.forEach((d) => {
+      const hasAct = d.activities.some((a) => a.activityId === actId && a.endTime);
+      if (hasAct) withAct.push(d.mood);
+      else withoutAct.push(d.mood);
+    });
+    if (withAct.length < 5 || withoutAct.length < 3) continue;
+    const avgWith = withAct.reduce((s, v) => s + v, 0) / withAct.length;
+    const avgWithout = withoutAct.reduce((s, v) => s + v, 0) / withoutAct.length;
+    const delta = avgWith - avgWithout;
+    if (Math.abs(delta) >= 0.8) {
+      const dir = delta > 0 ? '+' : '';
+      insights.push({
+        id: String(++idCounter),
+        title: `${actId} → настроение ${dir}${delta.toFixed(1)}`,
+        description: `В дни с активностью «${actId}» настроение ${delta > 0 ? 'выше' : 'ниже'} на ${Math.abs(delta).toFixed(1)} пункта.`,
+        category: 'body',
+        layer: 'patterns',
+        strength: Math.min(1, Math.abs(delta) / 3),
+        observationCount: withAct.length,
+        advice: delta > 0
+          ? `Активность «${actId}» положительно влияет на твоё настроение — используй её как инструмент.`
+          : `Активность «${actId}» снижает настроение — попробуй ограничить её в трудные дни.`,
+        chartData: [
+          { name: `С ${actId}`, value1: Math.round(avgWith * 10) / 10 },
+          { name: 'Без', value1: Math.round(avgWithout * 10) / 10 },
+        ],
+      });
+    }
+  }
+
+  return insights.slice(0, 5); // top 5 patterns
+}
+
+// ---- Energy insights ----
+export function computeEnergyInsights(sourceDays: DayLog[]): import('./types').Insight[] {
+  const complete = sourceDays.filter((d) => d.status === 'complete' && d.moodSnapshots.length >= 2);
+  if (complete.length < 7) return [];
+
+  const insights: import('./types').Insight[] = [];
+  let idCounter = 950;
+
+  // Chronotype: avg energy by hour buckets
+  const hourBuckets: Record<number, number[]> = {};
+  complete.forEach((d) => {
+    d.moodSnapshots.forEach((s) => {
+      const hour = parseInt(s.time.split(':')[0], 10);
+      const bucket = Math.floor(hour / 2) * 2; // 2-hour buckets
+      if (!hourBuckets[bucket]) hourBuckets[bucket] = [];
+      hourBuckets[bucket].push(s.energy);
+    });
+  });
+
+  const bucketAvgs = Object.entries(hourBuckets)
+    .filter(([, vals]) => vals.length >= 3)
+    .map(([h, vals]) => ({
+      hour: parseInt(h, 10),
+      avg: vals.reduce((s, v) => s + v, 0) / vals.length,
+    }))
+    .sort((a, b) => a.hour - b.hour);
+
+  if (bucketAvgs.length >= 3) {
+    const peak = bucketAvgs.reduce((best, b) => b.avg > best.avg ? b : best, bucketAvgs[0]);
+    const chartData = bucketAvgs.map((b) => ({
+      name: `${b.hour}:00`,
+      value1: Math.round(b.avg * 10) / 10,
+    }));
+    insights.push({
+      id: String(++idCounter),
+      title: `Пиковая энергия в ${peak.hour}:00–${peak.hour + 2}:00`,
+      description: `Твоя энергия стабильно выше в промежутке ${peak.hour}:00–${peak.hour + 2}:00 (в среднем ${peak.avg.toFixed(1)}/10).`,
+      category: 'productivity',
+      layer: 'energy',
+      strength: 0.8,
+      observationCount: complete.length,
+      advice: `Ставь самые сложные задачи на ${peak.hour}:00–${peak.hour + 2}:00. Это твои пиковые часы.`,
+      chartData,
+    });
+  }
+
+  // Recovery score: sleep hours → next day energy
+  const sleepEnergyPairs: { sleep: number; energy: number }[] = [];
+  for (let i = 0; i < complete.length - 1; i++) {
+    sleepEnergyPairs.push({ sleep: complete[i].sleep.hours, energy: complete[i + 1].energy });
+  }
+  if (sleepEnergyPairs.length >= 5) {
+    const buckets = [
+      { label: '<6ч', pairs: sleepEnergyPairs.filter((p) => p.sleep < 6) },
+      { label: '6-7ч', pairs: sleepEnergyPairs.filter((p) => p.sleep >= 6 && p.sleep < 7) },
+      { label: '7-8ч', pairs: sleepEnergyPairs.filter((p) => p.sleep >= 7 && p.sleep < 8) },
+      { label: '>8ч', pairs: sleepEnergyPairs.filter((p) => p.sleep >= 8) },
+    ].filter((b) => b.pairs.length >= 2);
+
+    if (buckets.length >= 2) {
+      insights.push({
+        id: String(++idCounter),
+        title: 'Сон напрямую влияет на твою энергию',
+        description: 'Анализ показывает чёткую корреляцию: больше сна → выше энергия на следующий день.',
+        category: 'sleep',
+        layer: 'energy',
+        strength: 0.75,
+        observationCount: sleepEnergyPairs.length,
+        advice: 'Оптимальный сон для твоей энергии — 7–8 часов. Используй Recovery Score как индикатор.',
+        chartData: buckets.map((b) => ({
+          name: b.label,
+          value1: Math.round((b.pairs.reduce((s, p) => s + p.energy, 0) / b.pairs.length) * 10) / 10,
+        })),
+      });
+    }
+  }
+
+  return insights;
 }

@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Drawer } from 'vaul';
 import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, ChevronRight, Settings, Check, Pencil, Moon as MoonIcon } from 'lucide-react';
-import { useDays, getStreak, useActivities, useEvents, useEventGroups } from '../data/store';
+import { useDays, getStreak, useActivities, useEvents, useEventGroups, useLenses } from '../data/store';
 import { MOOD_LABELS } from '../data/types';
-import type { ActivityType, EventType } from '../data/types';
+import type { ActivityType, EventType, MoodSnapshot } from '../data/types';
 import { DraggableActivityGrid } from '../components/DraggableActivityGrid';
 import { ActivityBottomSheet } from '../components/ActivityBottomSheet';
 import { EmojiPickerSheet } from '../components/EmojiPickerSheet';
@@ -63,17 +63,20 @@ function nowTimeStr(): string {
 
 export function NowPage() {
   const navigate = useNavigate();
-  const { getOrCreateToday, toggleActivity, addMoodSnapshot, updateMoodSnapshot, deleteMoodSnapshot, toggleEvent, updateEventEntry, updateActivityEntry, deleteActivityEntry, activeActivities } = useDays();
+  const { getOrCreateToday, toggleActivity, saveDay, addMoodSnapshot, updateMoodSnapshot, deleteMoodSnapshot, toggleEvent, updateEventEntry, updateActivityEntry, deleteActivityEntry, activeActivities } = useDays();
   const { activities, addActivity, reorderActivities, deleteActivity: deleteActivityType, updateActivity } = useActivities();
   const { events, addEvent, deleteEvent } = useEvents();
   const { eventGroups, addEventGroup, updateEventGroup, deleteEventGroup, reorderEventGroups } = useEventGroups();
+  const { activeLensIds } = useLenses();
   const today = getOrCreateToday();
   const streak = getStreak();
+  const hasActiveLenses = activeLensIds.length > 0;
 
   const [showState, setShowState] = useState(false);
   const [tempMood, setTempMood] = useState(today.mood);
   const [tempEnergy, setTempEnergy] = useState(today.energy);
   const [tempComment, setTempComment] = useState('');
+  const [tempTrigger, setTempTrigger] = useState<MoodSnapshot['trigger'] | null>(null);
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [commentingEntry, setCommentingEntry] = useState<string | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
@@ -218,8 +221,9 @@ export function NowPage() {
   };
 
   const handleSaveState = () => {
-    addMoodSnapshot(tempMood, tempEnergy, tempComment);
+    addMoodSnapshot(tempMood, tempEnergy, tempComment, tempTrigger ?? undefined);
     setTempComment('');
+    setTempTrigger(null);
     setShowState(false);
   };
 
@@ -315,6 +319,20 @@ export function NowPage() {
       </div>
 
       <div className="px-5 pb-6 space-y-3">
+        {/* ═══ Morning Intent (лінзи активны) ═══ */}
+        {hasActiveLenses && (
+          <div className="bg-violet-50 rounded-2xl p-4 border border-violet-100 space-y-2">
+            <p className="text-xs text-violet-500">Намерение на сегодня</p>
+            <textarea
+              value={today.morningIntent ?? ''}
+              onChange={(e) => saveDay({ ...today, morningIntent: e.target.value })}
+              placeholder="Что для тебя важно сегодня? Как ты хочешь прожить этот день?"
+              rows={2}
+              className="w-full text-sm bg-transparent border-0 outline-none resize-none placeholder:text-violet-300 text-violet-900"
+            />
+          </div>
+        )}
+
         {/* ═══ Active Chips ═══ */}
         <AnimatePresence>
           {activeEntries.length > 0 && (
@@ -463,6 +481,33 @@ export function NowPage() {
                     placeholder="Заметка..."
                     className="w-full text-sm px-3 py-2 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
                   />
+                  {/* Trigger tags (patterns layer) */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5">Что вызвало изменение?</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        { id: 'work', label: '💼 Работа' },
+                        { id: 'rest', label: '😴 Отдых' },
+                        { id: 'social', label: '👥 Общение' },
+                        { id: 'physical', label: '🏃 Физическое' },
+                        { id: 'event', label: '⚡ Событие' },
+                        { id: 'spontaneous', label: '✨ Само по себе' },
+                      ] as { id: MoodSnapshot['trigger']; label: string }[]).map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setTempTrigger(tempTrigger === t.id ? null : t.id)}
+                          className={`px-2.5 py-1 rounded-lg text-xs border transition-all cursor-pointer ${
+                            tempTrigger === t.id
+                              ? 'bg-primary/10 border-primary text-primary'
+                              : 'border-border text-muted-foreground hover:border-primary/30'
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <button onClick={handleSaveState} className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm cursor-pointer hover:opacity-90 transition-opacity">Записать состояние</button>
                 </div>
               </motion.div>

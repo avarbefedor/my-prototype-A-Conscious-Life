@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Moon, Smile, Zap, Briefcase, Dumbbell, Footprints, UtensilsCrossed, BookHeart, ChevronRight, ChevronLeft, Save, Check } from 'lucide-react';
+import { ArrowLeft, Moon, Smile, Zap, Briefcase, Dumbbell, Footprints, UtensilsCrossed, ChevronRight, ChevronLeft, Save, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { DayLog, VIRTUES, ARCHETYPES, ACTIVITIES, MOOD_LABELS } from '../data/types';
-import { useDays, detectArchetype } from '../data/store';
+import { DayLog, ACTIVITIES, LensValue, BUILT_IN_LENSES } from '../data/types';
+import { useDays, detectArchetype, useLenses } from '../data/store';
 import { RatingSlider } from '../components/RatingSlider';
 import { SegmentedControl } from '../components/SegmentedControl';
+import { LensBlock } from '../components/LensBlock';
 
 const STEPS = ['Обзор дня', 'Рефлексия'];
 
@@ -17,6 +18,7 @@ function todayStr() {
 export function EveningPage() {
   const navigate = useNavigate();
   const { getOrCreateToday, saveDay } = useDays();
+  const { activeLenses } = useLenses();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [day, setDay] = useState<DayLog>(() => {
@@ -25,10 +27,16 @@ export function EveningPage() {
   });
 
   const detectedArch = detectArchetype(day);
-  const archInfo = ARCHETYPES.find((a) => a.id === detectedArch);
 
   const update = (partial: Partial<DayLog>) => {
     setDay((prev) => ({ ...prev, ...partial }));
+  };
+
+  const updateLensValue = (lensId: string, value: LensValue) => {
+    setDay((prev) => ({
+      ...prev,
+      lensValues: { ...(prev.lensValues ?? {}), [lensId]: value },
+    }));
   };
 
   const next = () => {
@@ -46,17 +54,33 @@ export function EveningPage() {
   };
 
   const handleSave = () => {
+    // Sync legacy virtue field from stoic-virtues lens for backward compat
+    const stoicValue = day.lensValues?.['stoic-virtues'];
+    const legacyVirtue = stoicValue?.type === 'select'
+      ? (stoicValue.anchorId === 'wisdom' ? 'Мудрость'
+        : stoicValue.anchorId === 'temperance' ? 'Умеренность'
+        : stoicValue.anchorId === 'courage' ? 'Мужество'
+        : stoicValue.anchorId === 'justice' ? 'Справедливость'
+        : day.virtue)
+      : day.virtue;
+
     saveDay({
       ...day,
       status: 'complete',
       detectedArchetype: detectedArch,
+      virtue: legacyVirtue ?? null,
+      lensValues: {
+        ...(day.lensValues ?? {}),
+        'jungian': { type: 'detect', anchorId: detectedArch },
+      },
     });
     toast.success('День сохранён! ✨');
     navigate('/');
   };
 
-  // Timeline for display
   const timelineActivities = day.activities.filter((a) => a.endTime);
+  const detectLenses = activeLenses.filter((l) => l.anchorType === 'detect');
+  const selectRateLenses = activeLenses.filter((l) => l.anchorType !== 'detect');
 
   return (
     <div className="flex flex-col h-full">
@@ -97,12 +121,19 @@ export function EveningPage() {
                 day={day}
                 update={update}
                 timelineActivities={timelineActivities}
-                archInfo={archInfo}
+                detectLenses={detectLenses}
+                lensValues={day.lensValues ?? {}}
                 detectedArch={detectedArch}
               />
             )}
             {step === 1 && (
-              <StepReflection day={day} update={update} />
+              <StepReflection
+                day={day}
+                update={update}
+                selectRateLenses={selectRateLenses}
+                lensValues={day.lensValues ?? {}}
+                onLensChange={updateLensValue}
+              />
             )}
           </motion.div>
         </AnimatePresence>
@@ -141,11 +172,19 @@ export function EveningPage() {
   );
 }
 
-function StepReview({ day, update, timelineActivities, archInfo, detectedArch }: {
+function StepReview({
+  day,
+  update,
+  timelineActivities,
+  detectLenses,
+  lensValues,
+  detectedArch,
+}: {
   day: DayLog;
   update: (p: Partial<DayLog>) => void;
   timelineActivities: DayLog['activities'];
-  archInfo: typeof ARCHETYPES[number] | undefined;
+  detectLenses: typeof BUILT_IN_LENSES;
+  lensValues: Record<string, LensValue>;
   detectedArch: string;
 }) {
   return (
@@ -183,7 +222,6 @@ function StepReview({ day, update, timelineActivities, archInfo, detectedArch }:
               );
             })}
           </div>
-          {/* Summary */}
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 pt-3 border-t border-border/50">
             {Array.from(new Set(timelineActivities.map((a) => a.activityId))).map((id) => {
               const act = ACTIVITIES.find((a) => a.id === id);
@@ -210,15 +248,20 @@ function StepReview({ day, update, timelineActivities, archInfo, detectedArch }:
         </div>
       )}
 
-      {/* Detected Archetype */}
-      {archInfo && (
-        <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
-          <p className="text-xs text-indigo-400 mb-1">Система определила</p>
-          <p className="text-sm text-indigo-700">
-            Сегодня ты был <span className="text-indigo-800">{archInfo.name}</span> — {archInfo.traits.join(', ')}
-          </p>
-        </div>
-      )}
+      {/* Detect-type active lenses (mirror / read-only) */}
+      {detectLenses.map((lens) => (
+        <LensBlock
+          key={lens.id}
+          lens={lens}
+          value={
+            lensValues[lens.id] ?? {
+              type: 'detect',
+              anchorId: lens.id === 'jungian' ? detectedArch : null,
+            }
+          }
+          readOnly
+        />
+      ))}
 
       {/* Sleep */}
       <div className="bg-card rounded-2xl p-4 border border-border space-y-4">
@@ -298,7 +341,7 @@ function StepReview({ day, update, timelineActivities, archInfo, detectedArch }:
         icon={<Dumbbell className="w-5 h-5 text-emerald-500" />}
       />
 
-      {/* Steps & Nutrition (compact) */}
+      {/* Steps & Nutrition */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-card rounded-2xl p-3 border border-border">
           <div className="flex items-center gap-1.5 mb-2">
@@ -331,42 +374,36 @@ function StepReview({ day, update, timelineActivities, archInfo, detectedArch }:
   );
 }
 
-function StepReflection({ day, update }: { day: DayLog; update: (p: Partial<DayLog>) => void }) {
+function StepReflection({
+  day,
+  update,
+  selectRateLenses,
+  lensValues,
+  onLensChange,
+}: {
+  day: DayLog;
+  update: (p: Partial<DayLog>) => void;
+  selectRateLenses: typeof BUILT_IN_LENSES;
+  lensValues: Record<string, LensValue>;
+  onLensChange: (lensId: string, value: LensValue) => void;
+}) {
   return (
     <>
-      {/* Virtue */}
-      <div className="bg-card rounded-2xl p-4 border border-border space-y-3">
-        <div className="flex items-center gap-2">
-          <BookHeart className="w-5 h-5 text-teal-500" />
-          <span className="text-sm text-muted-foreground">Добродетель дня</span>
-          <span className="text-[10px] text-muted-foreground ml-auto">необязательно</span>
+      {/* Active select/rate lenses */}
+      {selectRateLenses.map((lens) => (
+        <LensBlock
+          key={lens.id}
+          lens={lens}
+          value={lensValues[lens.id]}
+          onChange={(val) => onLensChange(lens.id, val)}
+        />
+      ))}
+
+      {selectRateLenses.length === 0 && (
+        <div className="bg-accent/30 rounded-2xl p-4 text-center text-sm text-muted-foreground">
+          Нет активных линз. Включи их в Профиле.
         </div>
-        <div className="flex flex-wrap gap-2">
-          {VIRTUES.map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => update({ virtue: day.virtue === v ? null : v })}
-              className={`px-3 py-2 rounded-xl text-sm transition-all cursor-pointer border ${
-                day.virtue === v
-                  ? 'bg-teal-50 text-teal-700 border-teal-200'
-                  : 'bg-background text-muted-foreground border-border hover:border-teal-200'
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-        {day.virtue && (
-          <input
-            type="text"
-            value={day.virtueNote}
-            onChange={(e) => update({ virtueNote: e.target.value })}
-            placeholder="Как проявлялась?"
-            className="w-full px-4 py-2.5 rounded-xl bg-input-background border-0 text-sm outline-none focus:ring-2 focus:ring-teal-200"
-          />
-        )}
-      </div>
+      )}
 
       {/* Reflection */}
       <div className="bg-card rounded-2xl p-4 border border-border space-y-3">
