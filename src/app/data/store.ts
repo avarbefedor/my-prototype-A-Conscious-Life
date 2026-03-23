@@ -335,24 +335,12 @@ export function useDays() {
     });
   }, []);
 
-  const MULTIPLIER_CYCLE: EventMultiplier[] = [1, 2, 3, 5, 10];
-
   const toggleEvent = useCallback((eventId: string) => {
     const today = getOrCreateToday();
     const existing = today.events.find((e) => e.eventId === eventId);
-    let events;
-    if (!existing) {
-      events = [...today.events, { eventId, multiplier: 1 as EventMultiplier }];
-    } else {
-      const idx = MULTIPLIER_CYCLE.indexOf(existing.multiplier);
-      if (idx === MULTIPLIER_CYCLE.length - 1) {
-        events = today.events.filter((e) => e.eventId !== eventId);
-      } else {
-        events = today.events.map((e) =>
-          e.eventId === eventId ? { ...e, multiplier: MULTIPLIER_CYCLE[idx + 1] } : e
-        );
-      }
-    }
+    const events = existing
+      ? today.events.filter((e) => e.eventId !== eventId)
+      : [...today.events, { eventId, multiplier: 1 as EventMultiplier }];
     saveDay({ ...today, events });
   }, []);
 

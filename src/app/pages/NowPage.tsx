@@ -92,15 +92,13 @@ export function NowPage() {
 
   // Events state
   const [eventsEditMode, setEventsEditMode] = useState(false);
-  const [casinoFlashId, setCasinoFlashId] = useState<string | null>(null);
-  const [descSheet, setDescSheet] = useState<{ open: boolean; eventId: string | null; text: string }>({ open: false, eventId: null, text: '' });
+  const [descSheet, setDescSheet] = useState<{ open: boolean; eventId: string | null; text: string; intensity: number }>({ open: false, eventId: null, text: '', intensity: 1 });
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [editGroupLabel, setEditGroupLabel] = useState('');
   const [addingInGroup, setAddingInGroup] = useState<string | false>(false);
   const [newEventEmoji, setNewEventEmoji] = useState('');
   const [newEventLabel, setNewEventLabel] = useState('');
   const [showEventEmojiPicker, setShowEventEmojiPicker] = useState(false);
-  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (activeActivities.length === 0) return;
@@ -136,10 +134,10 @@ export function NowPage() {
     setJustStarted(null);
   }, [getRunningEntry, updateActivityEntry]);
 
-  const MULTIPLIER_CYCLE = [1, 2, 3, 5, 10] as const;
-  const MULTIPLIER_COLORS: Record<number, string> = {
-    1: 'var(--color-primary)', 2: '#eab308', 3: '#f97316', 5: '#ef4444', 10: '#dc2626',
-  };
+  const INTENSITY_LEVELS = [1, 2, 3, 5, 10] as const;
+  const INTENSITY_COLORS = ['var(--color-primary)', '#eab308', '#f97316', '#ef4444', '#dc2626'];
+  const INTENSITY_LABELS = ['Слабо', 'Немного', 'Умеренно', 'Сильно', 'Очень сильно'];
+  const multiplierToIntensity = (m: number) => Math.max(0, INTENSITY_LEVELS.indexOf(m as typeof INTENSITY_LEVELS[number]));
   const EVENT_EMOJIS = [
     '🍷','🍺','🚬','🍔','😰','💭','⚡','🤒','💊','❤️',
     '🎉','💡','🙏','🏆','😤','👥','✈️','💰','🎓','😴',
@@ -147,43 +145,29 @@ export function NowPage() {
     '😡','🥳','🤗','😂','🤔','😮','😎','🤑','🫂','🩺',
   ];
 
-  const handleEventTap = (eventId: string) => {
-    const existing = today.events.find((e) => e.eventId === eventId);
-    if (existing) {
-      const idx = MULTIPLIER_CYCLE.indexOf(existing.multiplier as typeof MULTIPLIER_CYCLE[number]);
-      if (idx < MULTIPLIER_CYCLE.length - 1 && MULTIPLIER_CYCLE[idx + 1] === 10) {
-        setCasinoFlashId(eventId);
-        try { navigator.vibrate?.(100); } catch (_) {}
-        setTimeout(() => setCasinoFlashId(null), 700);
-      }
+  const handleEventOpenSheet = (eventId: string) => {
+    let entry = today.events.find((e) => e.eventId === eventId);
+    if (!entry) {
+      toggleEvent(eventId);
+      entry = { eventId, multiplier: 1 };
     }
-    toggleEvent(eventId);
-  };
-
-  const startLongPress = (eventId: string) => {
-    longPressRef.current = setTimeout(() => {
-      const entry = today.events.find((e) => e.eventId === eventId);
-      setDescSheet({ open: true, eventId, text: entry?.description || '' });
-      try { navigator.vibrate?.(30); } catch (_) {}
-    }, 500);
-  };
-
-  const cancelLongPress = () => {
-    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
+    const intensity = multiplierToIntensity(entry.multiplier) + 1;
+    setDescSheet({ open: true, eventId, text: entry.description || '', intensity });
   };
 
   const saveDescription = () => {
     if (descSheet.eventId) {
-      updateEventEntry(descSheet.eventId, { description: descSheet.text.trim() || undefined });
+      const multiplier = INTENSITY_LEVELS[descSheet.intensity - 1];
+      updateEventEntry(descSheet.eventId, { description: descSheet.text.trim() || undefined, multiplier });
     }
-    setDescSheet({ open: false, eventId: null, text: '' });
+    setDescSheet({ open: false, eventId: null, text: '', intensity: 1 });
   };
 
   const renderEventChip = (tag: typeof events[0]) => {
     const entry = today.events.find((e) => e.eventId === tag.id);
     const isActive = !!entry;
-    const multiplier = entry?.multiplier ?? 1;
-    const isFlashing = casinoFlashId === tag.id;
+    const intensityIdx = entry ? multiplierToIntensity(entry.multiplier) : 0;
+    const activeColor = INTENSITY_COLORS[intensityIdx];
 
     if (eventsEditMode) {
       return (
@@ -202,41 +186,42 @@ export function NowPage() {
     }
 
     return (
-      <motion.button
+      <div
         key={tag.id}
-        animate={isFlashing ? { scale: [1, 1.4, 0.9, 1.25, 1], rotate: [-5, 5, -3, 3, 0] } : {}}
-        transition={{ duration: 0.5 }}
-        onClick={() => handleEventTap(tag.id)}
-        onPointerDown={() => startLongPress(tag.id)}
-        onPointerUp={cancelLongPress}
-        onPointerLeave={cancelLongPress}
-        className="relative px-3 py-1.5 rounded-full text-sm transition-colors cursor-pointer border select-none"
-        style={isActive ? {
-          backgroundColor: MULTIPLIER_COLORS[multiplier],
-          borderColor: MULTIPLIER_COLORS[multiplier],
-          color: '#fff',
-          boxShadow: multiplier >= 5 ? `0 0 12px ${MULTIPLIER_COLORS[multiplier]}55` : undefined,
-        } : {
-          backgroundColor: 'transparent',
-          borderColor: 'var(--color-border)',
-          color: 'var(--color-muted-foreground)',
-        }}
+        className="relative inline-flex items-stretch rounded-full border overflow-hidden select-none text-sm transition-colors"
+        style={isActive
+          ? { borderColor: activeColor }
+          : { borderColor: 'var(--color-border)' }}
       >
-        <span className="mr-1">{tag.emoji}</span>{tag.label}
-        {isActive && multiplier > 1 && (
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px] font-bold px-1 bg-white"
-            style={{ color: MULTIPLIER_COLORS[multiplier], border: `1.5px solid ${MULTIPLIER_COLORS[multiplier]}` }}
-          >
-            ×{multiplier}
-          </motion.span>
-        )}
-        {entry?.description && (
-          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-400 border-2 border-card" />
-        )}
-      </motion.button>
+        {/* Left zone — toggle on/off */}
+        <button
+          onClick={() => toggleEvent(tag.id)}
+          className="flex items-center pl-2.5 pr-2 py-1.5 cursor-pointer transition-colors"
+          style={isActive
+            ? { backgroundColor: activeColor, color: '#fff' }
+            : { backgroundColor: 'transparent', color: 'var(--color-muted-foreground)' }}
+        >
+          <span className="leading-none">{tag.emoji}</span>
+        </button>
+        {/* Divider */}
+        <div
+          className="w-px shrink-0"
+          style={{ backgroundColor: isActive ? 'rgba(255,255,255,0.25)' : 'var(--color-border)' }}
+        />
+        {/* Right zone — intensity + note sheet */}
+        <button
+          onClick={() => handleEventOpenSheet(tag.id)}
+          className="flex items-center gap-1.5 pl-2 pr-3 py-1.5 cursor-pointer transition-colors"
+          style={isActive
+            ? { backgroundColor: `${activeColor}18`, color: activeColor }
+            : { backgroundColor: 'transparent', color: 'var(--color-muted-foreground)' }}
+        >
+          {tag.label}
+          {entry?.description && (
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: isActive ? activeColor : '#60a5fa' }} />
+          )}
+        </button>
+      </div>
     );
   };
 
@@ -894,7 +879,7 @@ export function NowPage() {
       </div>
 
       {/* Description drawer */}
-      <Drawer.Root open={descSheet.open} onOpenChange={(open) => { if (!open) setDescSheet({ open: false, eventId: null, text: '' }); }}>
+      <Drawer.Root open={descSheet.open} onOpenChange={(open) => { if (!open) setDescSheet({ open: false, eventId: null, text: '', intensity: 1 }); }}>
         <Drawer.Portal>
           <Drawer.Overlay className="fixed inset-0 bg-black/40 z-40" />
           <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl p-5 space-y-4 outline-none" style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
@@ -904,23 +889,47 @@ export function NowPage() {
               return tag ? (
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">{tag.emoji}</span>
-                  <span className="text-base">{tag.label}</span>
+                  <span className="text-base font-medium">{tag.label}</span>
                 </div>
               ) : null;
             })()}
+
+            {/* Intensity bars */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground">Интенсивность</span>
+                <span className="text-xs font-medium" style={{ color: INTENSITY_COLORS[descSheet.intensity - 1] }}>
+                  {INTENSITY_LABELS[descSheet.intensity - 1]}
+                </span>
+              </div>
+              <div className="flex gap-1 items-end">
+                {INTENSITY_LEVELS.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setDescSheet((s) => ({ ...s, intensity: i + 1 }))}
+                    className="flex-1 rounded transition-all cursor-pointer"
+                    style={{
+                      height: `${14 + i * 5}px`,
+                      backgroundColor: i < descSheet.intensity ? INTENSITY_COLORS[i] : 'var(--color-border)',
+                      opacity: i < descSheet.intensity ? 1 : 0.4,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
             <textarea
               value={descSheet.text}
               onChange={(e) => setDescSheet((s) => ({ ...s, text: e.target.value }))}
               placeholder="Заметка к событию..."
-              rows={4}
-              autoFocus
+              rows={3}
               className="w-full px-3 py-2.5 rounded-xl bg-accent/40 border-0 outline-none text-sm resize-none focus:ring-1 focus:ring-primary/20"
             />
             <div className="flex gap-2">
               <button onClick={saveDescription} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm cursor-pointer hover:opacity-90 transition-opacity">
                 Сохранить
               </button>
-              <button onClick={() => setDescSheet({ open: false, eventId: null, text: '' })} className="px-4 py-2.5 rounded-xl bg-accent text-muted-foreground text-sm cursor-pointer hover:bg-accent/70 transition-colors">
+              <button onClick={() => setDescSheet({ open: false, eventId: null, text: '', intensity: 1 })} className="px-4 py-2.5 rounded-xl bg-accent text-muted-foreground text-sm cursor-pointer hover:bg-accent/70 transition-colors">
                 Отмена
               </button>
             </div>
