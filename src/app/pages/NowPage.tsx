@@ -145,20 +145,28 @@ export function NowPage() {
     '😡','🥳','🤗','😂','🤔','😮','😎','🤑','🫂','🩺',
   ];
 
+  // Тап на чип всегда открывает шторку. Если событие ещё не добавлено — показываем шторку
+  // с дефолтными значениями; «Сохранить» добавит его, «Убрать» / закрыть — ничего не делает.
   const handleEventOpenSheet = (eventId: string) => {
-    let entry = today.events.find((e) => e.eventId === eventId);
-    if (!entry) {
-      toggleEvent(eventId);
-      entry = { eventId, multiplier: 1 };
-    }
-    const intensity = multiplierToIntensity(entry.multiplier) + 1;
-    setDescSheet({ open: true, eventId, text: entry.description || '', intensity });
+    const entry = today.events.find((e) => e.eventId === eventId);
+    const intensity = entry ? multiplierToIntensity(entry.multiplier) + 1 : 1;
+    setDescSheet({ open: true, eventId, text: entry?.description || '', intensity });
   };
 
   const saveDescription = () => {
     if (descSheet.eventId) {
       const multiplier = INTENSITY_LEVELS[descSheet.intensity - 1];
+      const alreadyActive = today.events.some((e) => e.eventId === descSheet.eventId);
+      if (!alreadyActive) toggleEvent(descSheet.eventId); // добавляем запись, если её не было
       updateEventEntry(descSheet.eventId, { description: descSheet.text.trim() || undefined, multiplier });
+    }
+    setDescSheet({ open: false, eventId: null, text: '', intensity: 1 });
+  };
+
+  const removeEventFromDay = () => {
+    if (descSheet.eventId) {
+      const alreadyActive = today.events.some((e) => e.eventId === descSheet.eventId);
+      if (alreadyActive) toggleEvent(descSheet.eventId);
     }
     setDescSheet({ open: false, eventId: null, text: '', intensity: 1 });
   };
@@ -186,42 +194,26 @@ export function NowPage() {
     }
 
     return (
-      <div
+      <button
         key={tag.id}
-        className="relative inline-flex items-stretch rounded-full border overflow-hidden select-none text-sm transition-colors"
-        style={isActive
-          ? { borderColor: activeColor }
-          : { borderColor: 'var(--color-border)' }}
+        onClick={() => handleEventOpenSheet(tag.id)}
+        className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border select-none text-sm transition-colors cursor-pointer"
+        style={isActive ? {
+          backgroundColor: activeColor,
+          borderColor: activeColor,
+          color: '#fff',
+        } : {
+          backgroundColor: 'transparent',
+          borderColor: 'var(--color-border)',
+          color: 'var(--color-muted-foreground)',
+        }}
       >
-        {/* Left zone — toggle on/off */}
-        <button
-          onClick={() => toggleEvent(tag.id)}
-          className="flex items-center pl-2.5 pr-2 py-1.5 cursor-pointer transition-colors"
-          style={isActive
-            ? { backgroundColor: activeColor, color: '#fff' }
-            : { backgroundColor: 'transparent', color: 'var(--color-muted-foreground)' }}
-        >
-          <span className="leading-none">{tag.emoji}</span>
-        </button>
-        {/* Divider */}
-        <div
-          className="w-px shrink-0"
-          style={{ backgroundColor: isActive ? 'rgba(255,255,255,0.25)' : 'var(--color-border)' }}
-        />
-        {/* Right zone — intensity + note sheet */}
-        <button
-          onClick={() => handleEventOpenSheet(tag.id)}
-          className="flex items-center gap-1.5 pl-2 pr-3 py-1.5 cursor-pointer transition-colors"
-          style={isActive
-            ? { backgroundColor: `${activeColor}18`, color: activeColor }
-            : { backgroundColor: 'transparent', color: 'var(--color-muted-foreground)' }}
-        >
-          {tag.label}
-          {entry?.description && (
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: isActive ? activeColor : '#60a5fa' }} />
-          )}
-        </button>
-      </div>
+        <span className="leading-none">{tag.emoji}</span>
+        {tag.label}
+        {entry?.description && (
+          <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-white/60" />
+        )}
+      </button>
     );
   };
 
@@ -933,6 +925,14 @@ export function NowPage() {
                 Отмена
               </button>
             </div>
+            {descSheet.eventId && today.events.some((e) => e.eventId === descSheet.eventId) && (
+              <button
+                onClick={removeEventFromDay}
+                className="w-full py-2 rounded-xl text-sm text-destructive/70 cursor-pointer hover:text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                Убрать событие из дня
+              </button>
+            )}
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>
