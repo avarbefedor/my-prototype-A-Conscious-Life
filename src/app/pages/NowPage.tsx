@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Drawer } from 'vaul';
-import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, ChevronRight, Settings, Check, Pencil } from 'lucide-react';
+import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, ChevronRight, Settings, Check, Pencil, Moon as MoonIcon } from 'lucide-react';
 import { useDays, getStreak, useActivities, useEvents, useEventGroups } from '../data/store';
 import { MOOD_LABELS } from '../data/types';
 import type { ActivityType, EventType } from '../data/types';
