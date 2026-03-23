@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { Flame, ChevronDown, ChevronUp, Plus, Moon as MoonIcon, X, Clock, MessageCircle, Trash2, ChevronRight, Settings, Check } from 'lucide-react';
-import { useDays, getStreak, useActivities, useEvents } from '../data/store';
+import { Drawer } from 'vaul';
+import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, ChevronRight, Settings, Check, Pencil } from 'lucide-react';
+import { useDays, getStreak, useActivities, useEvents, useEventGroups } from '../data/store';
 import { MOOD_LABELS } from '../data/types';
 import type { ActivityType, EventType } from '../data/types';
 import { DraggableActivityGrid } from '../components/DraggableActivityGrid';
@@ -62,14 +63,14 @@ function nowTimeStr(): string {
 
 export function NowPage() {
   const navigate = useNavigate();
-  const { getOrCreateToday, toggleActivity, addMoodSnapshot, updateMoodSnapshot, deleteMoodSnapshot, toggleEvent, updateActivityEntry, deleteActivityEntry, activeActivities } = useDays();
+  const { getOrCreateToday, toggleActivity, addMoodSnapshot, updateMoodSnapshot, deleteMoodSnapshot, toggleEvent, updateEventEntry, updateActivityEntry, deleteActivityEntry, activeActivities } = useDays();
   const { activities, addActivity, reorderActivities, deleteActivity: deleteActivityType, updateActivity } = useActivities();
   const { events, addEvent, deleteEvent } = useEvents();
+  const { eventGroups, addEventGroup, updateEventGroup, deleteEventGroup, reorderEventGroups } = useEventGroups();
   const today = getOrCreateToday();
   const streak = getStreak();
 
   const [showState, setShowState] = useState(false);
-  const [showEvents, setShowEvents] = useState(false);
   const [tempMood, setTempMood] = useState(today.mood);
   const [tempEnergy, setTempEnergy] = useState(today.energy);
   const [tempComment, setTempComment] = useState('');
@@ -91,10 +92,15 @@ export function NowPage() {
 
   // Events state
   const [eventsEditMode, setEventsEditMode] = useState(false);
-  const [addingEvent, setAddingEvent] = useState(false);
+  const [casinoFlashId, setCasinoFlashId] = useState<string | null>(null);
+  const [descSheet, setDescSheet] = useState<{ open: boolean; eventId: string | null; text: string }>({ open: false, eventId: null, text: '' });
+  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
+  const [editGroupLabel, setEditGroupLabel] = useState('');
+  const [addingInGroup, setAddingInGroup] = useState<string | false>(false);
   const [newEventEmoji, setNewEventEmoji] = useState('');
   const [newEventLabel, setNewEventLabel] = useState('');
   const [showEventEmojiPicker, setShowEventEmojiPicker] = useState(false);
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (activeActivities.length === 0) return;
@@ -129,6 +135,110 @@ export function NowPage() {
     updateActivityEntry(entry.id, { startTime: adjustTime(entry.startTime, shiftMinutes) });
     setJustStarted(null);
   }, [getRunningEntry, updateActivityEntry]);
+
+  const MULTIPLIER_CYCLE = [1, 2, 3, 5, 10] as const;
+  const MULTIPLIER_COLORS: Record<number, string> = {
+    1: 'var(--color-primary)', 2: '#eab308', 3: '#f97316', 5: '#ef4444', 10: '#dc2626',
+  };
+  const EVENT_EMOJIS = [
+    '🍷','🍺','🚬','🍔','😰','💭','⚡','🤒','💊','❤️',
+    '🎉','💡','🙏','🏆','😤','👥','✈️','💰','🎓','😴',
+    '🥊','🧘','🎸','📱','💻','🚗','🐕','🌿','☕','😢',
+    '😡','🥳','🤗','😂','🤔','😮','😎','🤑','🫂','🩺',
+  ];
+
+  const handleEventTap = (eventId: string) => {
+    const existing = today.events.find((e) => e.eventId === eventId);
+    if (existing) {
+      const idx = MULTIPLIER_CYCLE.indexOf(existing.multiplier as typeof MULTIPLIER_CYCLE[number]);
+      if (idx < MULTIPLIER_CYCLE.length - 1 && MULTIPLIER_CYCLE[idx + 1] === 10) {
+        setCasinoFlashId(eventId);
+        try { navigator.vibrate?.(100); } catch (_) {}
+        setTimeout(() => setCasinoFlashId(null), 700);
+      }
+    }
+    toggleEvent(eventId);
+  };
+
+  const startLongPress = (eventId: string) => {
+    longPressRef.current = setTimeout(() => {
+      const entry = today.events.find((e) => e.eventId === eventId);
+      setDescSheet({ open: true, eventId, text: entry?.description || '' });
+      try { navigator.vibrate?.(30); } catch (_) {}
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
+  };
+
+  const saveDescription = () => {
+    if (descSheet.eventId) {
+      updateEventEntry(descSheet.eventId, { description: descSheet.text.trim() || undefined });
+    }
+    setDescSheet({ open: false, eventId: null, text: '' });
+  };
+
+  const renderEventChip = (tag: typeof events[0]) => {
+    const entry = today.events.find((e) => e.eventId === tag.id);
+    const isActive = !!entry;
+    const multiplier = entry?.multiplier ?? 1;
+    const isFlashing = casinoFlashId === tag.id;
+
+    if (eventsEditMode) {
+      return (
+        <div key={tag.id} className="relative">
+          <span className="px-3 py-1.5 rounded-full text-sm border bg-background text-muted-foreground border-border inline-flex items-center gap-1 select-none">
+            <span>{tag.emoji}</span>{tag.label}
+          </span>
+          <button
+            onClick={() => deleteEvent(tag.id)}
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center cursor-pointer hover:bg-red-600 transition-colors"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <motion.button
+        key={tag.id}
+        animate={isFlashing ? { scale: [1, 1.4, 0.9, 1.25, 1], rotate: [-5, 5, -3, 3, 0] } : {}}
+        transition={{ duration: 0.5 }}
+        onClick={() => handleEventTap(tag.id)}
+        onPointerDown={() => startLongPress(tag.id)}
+        onPointerUp={cancelLongPress}
+        onPointerLeave={cancelLongPress}
+        className="relative px-3 py-1.5 rounded-full text-sm transition-colors cursor-pointer border select-none"
+        style={isActive ? {
+          backgroundColor: MULTIPLIER_COLORS[multiplier],
+          borderColor: MULTIPLIER_COLORS[multiplier],
+          color: '#fff',
+          boxShadow: multiplier >= 5 ? `0 0 12px ${MULTIPLIER_COLORS[multiplier]}55` : undefined,
+        } : {
+          backgroundColor: 'transparent',
+          borderColor: 'var(--color-border)',
+          color: 'var(--color-muted-foreground)',
+        }}
+      >
+        <span className="mr-1">{tag.emoji}</span>{tag.label}
+        {isActive && multiplier > 1 && (
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px] font-bold px-1 bg-white"
+            style={{ color: MULTIPLIER_COLORS[multiplier], border: `1.5px solid ${MULTIPLIER_COLORS[multiplier]}` }}
+          >
+            ×{multiplier}
+          </motion.span>
+        )}
+        {entry?.description && (
+          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-400 border-2 border-card" />
+        )}
+      </motion.button>
+    );
+  };
 
   const handleSaveState = () => {
     addMoodSnapshot(tempMood, tempEnergy, tempComment);
@@ -383,177 +493,179 @@ export function NowPage() {
           </AnimatePresence>
         </div>
 
-        {/* ═══ Quick Events ═══ */}
+        {/* ═══ Events ═══ */}
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="p-4 flex items-center justify-between">
-            <button onClick={() => setShowEvents(!showEvents)} className="flex items-center gap-2 flex-1 cursor-pointer">
-              <Plus className="w-4 h-4 text-muted-foreground" />
+            <div className="flex items-center gap-2">
               <span className="text-sm">События</span>
-              {today.events.length > 0 && (
-                <div className="flex gap-1 ml-1">
-                  {today.events.slice(0, 4).map((e) => {
+              {today.events.length > 0 && !eventsEditMode && (
+                <div className="flex gap-0.5">
+                  {today.events.slice(0, 6).map((e) => {
                     const tag = events.find((t) => t.id === e.eventId);
-                    if (!tag) return null;
-                    return (
-                      <span key={e.eventId} className="text-sm relative">
-                        {tag.emoji}
-                        <span className="absolute -top-1 -right-1.5 text-[8px]">
-                          {e.intensity === 'strong' ? '+' : e.intensity === 'weak' ? '−' : ''}
-                        </span>
-                      </span>
-                    );
+                    return tag ? <span key={e.eventId} className="text-sm">{tag.emoji}</span> : null;
                   })}
-                  {today.events.length > 4 && <span className="text-xs text-muted-foreground">+{today.events.length - 4}</span>}
+                  {today.events.length > 6 && <span className="text-xs text-muted-foreground">+{today.events.length - 6}</span>}
                 </div>
               )}
-            </button>
-            <div className="flex items-center gap-1">
-              {showEvents && (
-                <button onClick={() => { setEventsEditMode(!eventsEditMode); if (eventsEditMode) setAddingEvent(false); }} className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent">
-                  {eventsEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
-                </button>
-              )}
-              <button onClick={() => setShowEvents(!showEvents)} className="cursor-pointer p-1">
-                {showEvents ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-              </button>
             </div>
+            <button
+              onClick={() => { setEventsEditMode(!eventsEditMode); setRenamingGroupId(null); setAddingInGroup(false); }}
+              className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent"
+            >
+              {eventsEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
+            </button>
           </div>
-          <AnimatePresence>
-            {showEvents && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                <div className="px-4 pb-4 space-y-3">
-                  {/* Hint */}
-                  {!eventsEditMode && (
-                    <p className="text-[10px] text-muted-foreground">Тап: обычное → сильное (+) → слабое (−) → выкл</p>
+
+          <div className="px-4 pb-4 space-y-3">
+            {!eventsEditMode && (
+              <p className="text-[10px] text-muted-foreground">Тап — отметить · Ещё тап — множитель ×2…×10 🎰 · Долгий тап — заметка</p>
+            )}
+
+            {/* Ungrouped events */}
+            {(() => {
+              const ungrouped = events.filter((t) => !t.groupId);
+              if (ungrouped.length === 0 && !eventsEditMode) return null;
+              return (
+                <div className="flex flex-wrap gap-2">
+                  {ungrouped.map((tag) => renderEventChip(tag))}
+                  {eventsEditMode && (
+                    <button
+                      onClick={() => { setAddingInGroup('__ungrouped__'); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
+                      className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
                   )}
-                  <div className="flex flex-wrap gap-2">
-                    {events.map((tag) => {
-                      const entry = today.events.find((e) => e.eventId === tag.id);
-                      const intensity = entry?.intensity;
-                      const isActive = !!entry;
+                </div>
+              );
+            })()}
 
-                      // Visual styling based on intensity
-                      let chipClass = '';
-                      let chipStyle: React.CSSProperties = {};
-                      let badge = '';
+            {/* Named groups */}
+            {eventGroups.map((group, groupIdx) => {
+              const groupEvents = events.filter((t) => t.groupId === group.id);
+              const isRenaming = renamingGroupId === group.id;
 
-                      if (!isActive) {
-                        chipClass = 'bg-background text-muted-foreground border-border hover:border-primary/40';
-                      } else if (intensity === 'weak') {
-                        chipClass = 'text-foreground/60 border-primary/30';
-                        chipStyle = { backgroundColor: 'var(--color-primary-foreground)', borderStyle: 'dashed' };
-                        badge = '−';
-                      } else if (intensity === 'strong') {
-                        chipClass = 'text-primary-foreground border-primary';
-                        chipStyle = { backgroundColor: 'var(--color-primary)', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' };
-                        badge = '+';
-                      } else {
-                        chipClass = 'bg-primary text-primary-foreground border-primary';
-                        badge = '';
-                      }
-
-                      if (eventsEditMode) {
-                        return (
-                          <div key={tag.id} className="relative">
-                            <span className="px-3 py-1.5 rounded-full text-sm border bg-background text-muted-foreground border-border inline-flex items-center gap-1">
-                              <span>{tag.emoji}</span>{tag.label}
-                            </span>
-                            <button
-                              onClick={() => deleteEvent(tag.id)}
-                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center cursor-pointer hover:bg-red-600 transition-colors"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <button
-                          key={tag.id}
-                          onClick={() => toggleEvent(tag.id)}
-                          className={`relative px-3 py-1.5 rounded-full text-sm transition-all cursor-pointer border ${chipClass}`}
-                          style={chipStyle}
-                        >
-                          <span className="mr-1">{tag.emoji}</span>{tag.label}
-                          {badge && (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-foreground text-background text-[10px] flex items-center justify-center">
-                              {badge}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-
-                    {/* Add new event chip */}
-                    {eventsEditMode && (
-                      <button
-                        onClick={() => setAddingEvent(!addingEvent)}
-                        className="px-3 py-1.5 rounded-full text-sm border border-dashed border-primary/40 text-primary/60 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
+              return (
+                <div key={group.id} className="space-y-2">
+                  {/* Divider with label */}
+                  <div className="flex items-center gap-2">
+                    <div className="h-px flex-1 bg-border" />
+                    {isRenaming ? (
+                      <input
+                        autoFocus
+                        value={editGroupLabel}
+                        onChange={(e) => setEditGroupLabel(e.target.value)}
+                        onBlur={() => { if (editGroupLabel.trim()) updateEventGroup(group.id, editGroupLabel.trim()); setRenamingGroupId(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenamingGroupId(null); }}
+                        className="text-[11px] px-2 py-0.5 rounded bg-accent/60 border-0 outline-none w-28 text-center"
+                      />
+                    ) : (
+                      <span
+                        onClick={() => { if (eventsEditMode) { setRenamingGroupId(group.id); setEditGroupLabel(group.label); } }}
+                        className={`text-[11px] text-muted-foreground px-1 flex items-center gap-1 ${eventsEditMode ? 'cursor-pointer hover:text-foreground' : ''}`}
                       >
-                        <Plus className="w-3.5 h-3.5" />Своё
-                      </button>
+                        {group.label}
+                        {eventsEditMode && <Pencil className="w-2.5 h-2.5 opacity-40" />}
+                      </span>
+                    )}
+                    <div className="h-px flex-1 bg-border" />
+                    {eventsEditMode && (
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button onClick={() => reorderEventGroups(groupIdx, groupIdx - 1)} disabled={groupIdx === 0} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20">
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => reorderEventGroups(groupIdx, groupIdx + 1)} disabled={groupIdx === eventGroups.length - 1} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20">
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => deleteEventGroup(group.id)} className="p-0.5 rounded cursor-pointer text-muted-foreground/30 hover:text-red-500 transition-colors">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     )}
                   </div>
 
-                  {/* Add new event inline form */}
-                  <AnimatePresence>
-                    {addingEvent && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-                        <div className="p-3 rounded-xl bg-accent/50 space-y-2.5">
-                          <div className="flex gap-3 items-center">
-                            <button
-                              onClick={() => setShowEventEmojiPicker(true)}
-                              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer border-2 border-primary/20 bg-card text-xl hover:scale-105 transition-transform"
-                            >
-                              {newEventEmoji || '?'}
-                            </button>
-                            <input
-                              type="text"
-                              value={newEventLabel}
-                              onChange={(e) => setNewEventLabel(e.target.value)}
-                              placeholder="Название события"
-                              className="w-full text-sm px-3 py-2 rounded-lg bg-card border-0 outline-none focus:ring-1 focus:ring-primary/20"
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && newEventEmoji && newEventLabel.trim()) {
-                                  addEvent({ emoji: newEventEmoji, label: newEventLabel.trim() });
-                                  setNewEventEmoji('');
-                                  setNewEventLabel('');
-                                  setAddingEvent(false);
-                                }
-                              }}
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                if (newEventEmoji && newEventLabel.trim()) {
-                                  addEvent({ emoji: newEventEmoji, label: newEventLabel.trim() });
-                                  setNewEventEmoji('');
-                                  setNewEventLabel('');
-                                  setAddingEvent(false);
-                                }
-                              }}
-                              disabled={!newEventEmoji || !newEventLabel.trim()}
-                              className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-                            >
-                              Добавить
-                            </button>
-                            <button
-                              onClick={() => { setAddingEvent(false); setNewEventEmoji(''); setNewEventLabel(''); }}
-                              className="px-3 py-2 rounded-lg bg-card text-muted-foreground text-xs cursor-pointer hover:bg-accent transition-colors"
-                            >
-                              Отмена
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
+                  {/* Events in group */}
+                  <div className="flex flex-wrap gap-2">
+                    {groupEvents.map((tag) => renderEventChip(tag))}
+                    {eventsEditMode && (
+                      <button
+                        onClick={() => { setAddingInGroup(group.id); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
+                        className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
                     )}
-                  </AnimatePresence>
+                  </div>
                 </div>
-              </motion.div>
+              );
+            })}
+
+            {/* Inline add-event form */}
+            <AnimatePresence>
+              {addingInGroup !== false && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                  <div className="p-3 rounded-xl bg-accent/50 space-y-2.5">
+                    <p className="text-[10px] text-muted-foreground">Новое событие</p>
+                    <div className="flex gap-3 items-center">
+                      <button
+                        onClick={() => setShowEventEmojiPicker(!showEventEmojiPicker)}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer border-2 border-primary/20 bg-card text-xl hover:scale-105 transition-transform"
+                      >
+                        {newEventEmoji || '?'}
+                      </button>
+                      <input
+                        autoFocus
+                        type="text"
+                        value={newEventLabel}
+                        onChange={(e) => setNewEventLabel(e.target.value)}
+                        placeholder="Название"
+                        className="w-full text-sm px-3 py-2 rounded-lg bg-card border-0 outline-none focus:ring-1 focus:ring-primary/20"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newEventEmoji && newEventLabel.trim()) {
+                            addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string });
+                            setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false);
+                          }
+                        }}
+                      />
+                    </div>
+                    {showEventEmojiPicker && (
+                      <div className="grid grid-cols-10 gap-1 p-2 bg-card rounded-xl">
+                        {EVENT_EMOJIS.map((e) => (
+                          <button key={e} onClick={() => { setNewEventEmoji(e); setShowEventEmojiPicker(false); }} className={`w-7 h-7 rounded-lg flex items-center justify-center text-base cursor-pointer transition-all ${newEventEmoji === e ? 'bg-primary/10 scale-110' : 'hover:bg-accent'}`}>{e}</button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (newEventEmoji && newEventLabel.trim()) {
+                            addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string });
+                            setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false); setShowEventEmojiPicker(false);
+                          }
+                        }}
+                        disabled={!newEventEmoji || !newEventLabel.trim()}
+                        className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs cursor-pointer disabled:opacity-40 hover:opacity-90 transition-opacity"
+                      >Добавить</button>
+                      <button
+                        onClick={() => { setAddingInGroup(false); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
+                        className="px-3 py-2 rounded-lg bg-card text-muted-foreground text-xs cursor-pointer hover:bg-accent"
+                      >Отмена</button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Add group */}
+            {eventsEditMode && (
+              <button
+                onClick={() => addEventGroup('Новая группа')}
+                className="w-full py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-primary/60 cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />Добавить группу
+              </button>
             )}
-          </AnimatePresence>
+          </div>
         </div>
 
         {/* ═══ Timeline Bar + Legend ═══ */}
@@ -781,13 +893,40 @@ export function NowPage() {
         </button>
       </div>
 
-      {/* Event emoji picker overlay */}
-      <EmojiPickerSheet
-        open={showEventEmojiPicker}
-        onClose={() => setShowEventEmojiPicker(false)}
-        onSelect={(emoji) => setNewEventEmoji(emoji)}
-        current={newEventEmoji || undefined}
-      />
+      {/* Description drawer */}
+      <Drawer.Root open={descSheet.open} onOpenChange={(open) => { if (!open) setDescSheet({ open: false, eventId: null, text: '' }); }}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 bg-black/40 z-40" />
+          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl p-5 space-y-4 outline-none" style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
+            <div className="w-10 h-1 bg-border rounded-full mx-auto" />
+            {descSheet.eventId && (() => {
+              const tag = events.find((e) => e.id === descSheet.eventId);
+              return tag ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{tag.emoji}</span>
+                  <span className="text-base">{tag.label}</span>
+                </div>
+              ) : null;
+            })()}
+            <textarea
+              value={descSheet.text}
+              onChange={(e) => setDescSheet((s) => ({ ...s, text: e.target.value }))}
+              placeholder="Заметка к событию..."
+              rows={4}
+              autoFocus
+              className="w-full px-3 py-2.5 rounded-xl bg-accent/40 border-0 outline-none text-sm resize-none focus:ring-1 focus:ring-primary/20"
+            />
+            <div className="flex gap-2">
+              <button onClick={saveDescription} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm cursor-pointer hover:opacity-90 transition-opacity">
+                Сохранить
+              </button>
+              <button onClick={() => setDescSheet({ open: false, eventId: null, text: '' })} className="px-4 py-2.5 rounded-xl bg-accent text-muted-foreground text-sm cursor-pointer hover:bg-accent/70 transition-colors">
+                Отмена
+              </button>
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
     </div>
   );
 }

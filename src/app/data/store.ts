@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { DayLog, ActivityEntry, MoodSnapshot, DEFAULT_ACTIVITIES, ActivityType, DEFAULT_EVENT_TAGS, EventType, EventIntensity } from './types';
+import { DayLog, ActivityEntry, MoodSnapshot, DEFAULT_ACTIVITIES, ActivityType, DEFAULT_EVENT_TAGS, EventType, EventMultiplier, EventGroup, DEFAULT_EVENT_GROUPS } from './types';
 import { initialDays } from './mockData';
 
 // Simple global store
@@ -15,8 +15,16 @@ let activityListeners: Set<() => void> = new Set();
 let customEvents: EventType[] = [...DEFAULT_EVENT_TAGS];
 let eventListeners: Set<() => void> = new Set();
 
+// Event groups store
+let customEventGroups: EventGroup[] = [...DEFAULT_EVENT_GROUPS];
+let eventGroupListeners: Set<() => void> = new Set();
+
 function notifyEvents() {
   eventListeners.forEach((l) => l());
+}
+
+function notifyEventGroups() {
+  eventGroupListeners.forEach((l) => l());
 }
 
 function notifyActivities() {
@@ -77,11 +85,73 @@ export function useEvents() {
     notifyEvents();
   }, []);
 
+  const setEventGroup = useCallback((eventId: string, groupId: string | undefined) => {
+    customEvents = customEvents.map((e) => e.id === eventId ? { ...e, groupId } : e);
+    notifyEvents();
+  }, []);
+
+  const reorderEvents = useCallback((fromIndex: number, toIndex: number) => {
+    const updated = [...customEvents];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    customEvents = updated;
+    notifyEvents();
+  }, []);
+
   return {
     events: customEvents,
     addEvent,
     updateEvent,
     deleteEvent,
+    setEventGroup,
+    reorderEvents,
+  };
+}
+
+// ---- Event Groups store ----
+export function useEventGroups() {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const listener = () => setTick((t) => t + 1);
+    eventGroupListeners.add(listener);
+    return () => { eventGroupListeners.delete(listener); };
+  }, []);
+
+  const addEventGroup = useCallback((label: string) => {
+    const group: EventGroup = { id: generateId(), label };
+    customEventGroups = [...customEventGroups, group];
+    notifyEventGroups();
+    return group;
+  }, []);
+
+  const updateEventGroup = useCallback((id: string, label: string) => {
+    customEventGroups = customEventGroups.map((g) => g.id === id ? { ...g, label } : g);
+    notifyEventGroups();
+  }, []);
+
+  const deleteEventGroup = useCallback((id: string) => {
+    customEventGroups = customEventGroups.filter((g) => g.id !== id);
+    customEvents = customEvents.map((e) => e.groupId === id ? { ...e, groupId: undefined } : e);
+    notifyEventGroups();
+    notifyEvents();
+  }, []);
+
+  const reorderEventGroups = useCallback((fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= customEventGroups.length) return;
+    const updated = [...customEventGroups];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    customEventGroups = updated;
+    notifyEventGroups();
+  }, []);
+
+  return {
+    eventGroups: customEventGroups,
+    addEventGroup,
+    updateEventGroup,
+    deleteEventGroup,
+    reorderEventGroups,
   };
 }
 
@@ -265,23 +335,30 @@ export function useDays() {
     });
   }, []);
 
+  const MULTIPLIER_CYCLE: EventMultiplier[] = [1, 2, 3, 5, 10];
+
   const toggleEvent = useCallback((eventId: string) => {
     const today = getOrCreateToday();
     const existing = today.events.find((e) => e.eventId === eventId);
     let events;
     if (!existing) {
-      // Off → normal
-      events = [...today.events, { eventId, intensity: 'normal' as EventIntensity }];
-    } else if (existing.intensity === 'normal') {
-      // normal → strong
-      events = today.events.map((e) => e.eventId === eventId ? { ...e, intensity: 'strong' as EventIntensity } : e);
-    } else if (existing.intensity === 'strong') {
-      // strong → weak
-      events = today.events.map((e) => e.eventId === eventId ? { ...e, intensity: 'weak' as EventIntensity } : e);
+      events = [...today.events, { eventId, multiplier: 1 as EventMultiplier }];
     } else {
-      // weak → off
-      events = today.events.filter((e) => e.eventId !== eventId);
+      const idx = MULTIPLIER_CYCLE.indexOf(existing.multiplier);
+      if (idx === MULTIPLIER_CYCLE.length - 1) {
+        events = today.events.filter((e) => e.eventId !== eventId);
+      } else {
+        events = today.events.map((e) =>
+          e.eventId === eventId ? { ...e, multiplier: MULTIPLIER_CYCLE[idx + 1] } : e
+        );
+      }
     }
+    saveDay({ ...today, events });
+  }, []);
+
+  const updateEventEntry = useCallback((eventId: string, updates: { description?: string; multiplier?: EventMultiplier }) => {
+    const today = getOrCreateToday();
+    const events = today.events.map((e) => e.eventId === eventId ? { ...e, ...updates } : e);
     saveDay({ ...today, events });
   }, []);
 
@@ -322,9 +399,10 @@ export function useDays() {
     updateMoodSnapshot,
     deleteMoodSnapshot,
     toggleEvent,
+    updateEventEntry,
     updateActivityEntry,
     deleteActivityEntry,
-    activeActivities: Array.from(activeActivities), // expose as array
+    activeActivities: Array.from(activeActivities),
   };
 }
 
