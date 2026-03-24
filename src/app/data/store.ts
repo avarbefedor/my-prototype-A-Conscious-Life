@@ -18,9 +18,29 @@ function notifyLenses() {
   lensListeners.forEach((l) => l());
 }
 
-// All layers unlocked for prototype
+// Dev toggle: all layers unlocked by default
+let devUnlockAll = true;
+let layerListeners: Set<() => void> = new Set();
+
 export function isLayerUnlocked(_layerId: 'patterns' | 'energy' | 'lenses'): boolean {
-  return true;
+  return devUnlockAll;
+}
+
+export function useDevUnlock() {
+  const [unlocked, setUnlocked] = useState(devUnlockAll);
+
+  useEffect(() => {
+    const listener = () => setUnlocked(devUnlockAll);
+    layerListeners.add(listener);
+    return () => { layerListeners.delete(listener); };
+  }, []);
+
+  const toggle = useCallback(() => {
+    devUnlockAll = !devUnlockAll;
+    layerListeners.forEach((l) => l());
+  }, []);
+
+  return { unlocked, toggle };
 }
 
 // Custom activities store

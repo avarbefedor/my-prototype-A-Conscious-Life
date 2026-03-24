@@ -295,7 +295,6 @@ export const mockInsights: Insight[] = [
     layer: 'lenses',
     strength: 0.71,
     observationCount: 10,
-    locked: true,
     advice: 'Запланируй время с близкими в конце недели — это помогает выровнять баланс.',
     chartData: [
       { name: 'Пн', value1: 7.5 },
@@ -315,7 +314,6 @@ export const mockInsights: Insight[] = [
     layer: 'energy',
     strength: 0.83,
     observationCount: 22,
-    locked: true,
     advice: 'Ставь самые сложные задачи на утро. Избегай встреч и переписки до 9:00.',
     chartData: [
       { name: '7:00', value1: 5.2 },

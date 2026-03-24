@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recha
 import { motion, AnimatePresence } from 'motion/react';
 import { mockInsights } from '../data/mockData';
 import { Insight } from '../data/types';
+import { isLayerUnlocked, useDevUnlock } from '../data/store';
 import { LockedInsight } from '../components/LockedInsight';
 
 const CATEGORIES = [
@@ -49,6 +50,7 @@ export function InsightsPage() {
   const [layerFilter, setLayerFilter] = useState('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAdvice, setShowAdvice] = useState<string | null>(null);
+  useDevUnlock(); // subscribe to layer unlock changes
 
   let filtered = filter === 'all'
     ? mockInsights
@@ -58,7 +60,8 @@ export function InsightsPage() {
     filtered = filtered.filter((i) => i.layer === layerFilter);
   }
 
-  const lockedCount = mockInsights.filter((i) => i.locked).length;
+  const isLocked = (i: Insight) => i.layer !== 'base' && !isLayerUnlocked(i.layer as 'patterns' | 'energy' | 'lenses');
+  const lockedCount = mockInsights.filter(isLocked).length;
 
   return (
     <div className="flex flex-col h-full">
@@ -118,7 +121,7 @@ export function InsightsPage() {
       {/* Insights list */}
       <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-3">
         {filtered.map((insight) =>
-          insight.locked ? (
+          isLocked(insight) ? (
             <LockedInsight key={insight.id} insight={insight} />
           ) : (
             <InsightCard

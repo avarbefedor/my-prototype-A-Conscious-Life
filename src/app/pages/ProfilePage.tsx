@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Target, Bell, Smartphone, Moon as MoonIcon, Settings, Sliders, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Check, GripVertical, Layers, ChevronRight } from 'lucide-react';
+import { User, Target, Bell, Smartphone, Moon as MoonIcon, Settings, Sliders, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Check, GripVertical, Layers, ChevronRight, Unlock } from 'lucide-react';
 import { ARCHETYPES, ACTIVITIES, BUILT_IN_LENSES, ACT_VALUES_BANK } from '../data/types';
-import { useDays, detectArchetype, useActivities, useLenses } from '../data/store';
+import { useDays, detectArchetype, useActivities, useLenses, useDevUnlock } from '../data/store';
 import { toast } from 'sonner';
 
 const GOALS = [
@@ -43,6 +43,7 @@ export function ProfilePage() {
   const [name, setName] = useState('Пользователь');
   const [selectedGoals, setSelectedGoals] = useState(['mood', 'productivity']);
   const [remindTime, setRemindTime] = useState(true);
+  const { unlocked: devAllUnlocked, toggle: toggleDevUnlock } = useDevUnlock();
   const [expandedLens, setExpandedLens] = useState<string | null>(null);
 
   // Activity editor state
@@ -451,6 +452,7 @@ export function ProfilePage() {
             <span className="text-sm">Настройки</span>
           </div>
           <SettingRow icon={<MoonIcon className="w-4 h-4" />} label="Тёмная тема" enabled={isDark} onToggle={() => setTheme(isDark ? 'light' : 'dark')} />
+          <SettingRow icon={<Unlock className="w-4 h-4" />} label="Все слои открыты (dev)" enabled={devAllUnlocked} onToggle={toggleDevUnlock} />
           <SettingRow icon={<Smartphone className="w-4 h-4" />} label="Подключить трекер шагов" />
           <SettingRow icon={<Bell className="w-4 h-4" />} label="Напоминание в 21:00" enabled={remindTime} onToggle={() => setRemindTime(!remindTime)} />
         </div>

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Moon, Dumbbell, Footprints, Smile } from 'lucide-react';
-import { useDays, isLayerUnlocked } from '../data/store';
+import { useDays, isLayerUnlocked, useDevUnlock } from '../data/store';
 import { DayLog, ACTIVITIES } from '../data/types';
 
 const MOOD_COLORS: Record<number, string> = {
@@ -348,6 +348,7 @@ const CHARGING_ACTIVITY_IDS = new Set(['sport', 'reading', 'socializing', 'famil
 const DRAINING_ACTIVITY_IDS = new Set(['work', 'social_media', 'commute']);
 
 function WeekSummary({ days }: { days: DayLog[] }) {
+  useDevUnlock(); // subscribe to layer unlock changes
   if (days.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">Нет данных за эту неделю</p>;
 
   const avgMood = (days.reduce((s, d) => s + d.mood, 0) / days.length).toFixed(1);
