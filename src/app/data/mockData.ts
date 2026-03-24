@@ -1,5 +1,5 @@
-import { DayLog, MoodSnapshot, Insight, ActivityEntry, DEFAULT_ACTIVITIES as ACTIVITIES } from './types';
-import type { EventEntry, EventIntensity } from './types';
+import { DayLog, MoodSnapshot, Insight, ActivityEntry, DEFAULT_ACTIVITIES as ACTIVITIES, LensValue } from './types';
+import type { EventEntry } from './types';
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9);
@@ -16,16 +16,63 @@ const trainingOptions = [null, 'plus', 'normal', 'minus'] as const;
 const eventPool = ['alcohol', 'binge', 'panic', 'pm', 'smoking', 'conflict', 'good_news', 'insight', 'gratitude'];
 const virtuePool = ['Мудрость', 'Умеренность', 'Мужество', 'Справедливость', null];
 const archetypePool = ['sage', 'ruler', 'hero', 'explorer', null];
-
-const intensities: EventIntensity[] = ['weak', 'normal', 'strong'];
+const virtueIdPool = ['wisdom', 'temperance', 'courage', 'justice', null];
+const mindfulnessPool = ['presence', 'reaction', 'autopilot', 'acceptance'];
 
 function randomEvents(): EventEntry[] {
   const count = Math.floor(Math.random() * 3);
   const shuffled = [...eventPool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count).map((id) => ({
     eventId: id,
-    intensity: intensities[Math.floor(Math.random() * intensities.length)],
+    multiplier: 1 as const,
   }));
+}
+
+function randomLensValues(virtue: string | null, archetype: string | null): Record<string, LensValue> {
+  const values: Record<string, LensValue> = {};
+
+  // stoic-virtues
+  const virtueId = virtue === 'Мудрость' ? 'wisdom'
+    : virtue === 'Умеренность' ? 'temperance'
+    : virtue === 'Мужество' ? 'courage'
+    : virtue === 'Справедливость' ? 'justice'
+    : null;
+  values['stoic-virtues'] = { type: 'select', anchorId: virtueId };
+
+  // jungian
+  values['jungian'] = { type: 'detect', anchorId: archetype };
+
+  // act-values (random scores)
+  values['act-values'] = {
+    type: 'rate',
+    scores: {
+      closeness: Math.round(3 + Math.random() * 7),
+      creativity: Math.round(3 + Math.random() * 7),
+      health: Math.round(3 + Math.random() * 7),
+      honesty: Math.round(3 + Math.random() * 7),
+      growth: Math.round(3 + Math.random() * 7),
+    },
+  };
+
+  // perma (random scores)
+  values['perma'] = {
+    type: 'rate',
+    scores: {
+      positive: Math.round(3 + Math.random() * 7),
+      engagement: Math.round(3 + Math.random() * 7),
+      relations: Math.round(3 + Math.random() * 7),
+      meaning: Math.round(3 + Math.random() * 7),
+      achievement: Math.round(3 + Math.random() * 7),
+    },
+  };
+
+  // mindfulness-quality
+  values['mindfulness-quality'] = {
+    type: 'select',
+    anchorId: mindfulnessPool[Math.floor(Math.random() * mindfulnessPool.length)],
+  };
+
+  return values;
 }
 
 function randomActivities(): ActivityEntry[] {
@@ -110,6 +157,10 @@ export function generateMockDays(count: number = 30): DayLog[] {
       status: i === 0 ? 'draft' : 'complete',
       activities: i === 0 ? [] : randomActivities(),
       moodSnapshots: i === 0 ? [] : randomSnapshots(mood, energy),
+      lensValues: i === 0 ? {} : randomLensValues(
+        virtuePool[Math.floor(Math.random() * virtuePool.length)] as string | null,
+        archetypePool[Math.floor(Math.random() * archetypePool.length)] as string | null,
+      ),
     });
   }
   return days;
@@ -122,8 +173,10 @@ export const mockInsights: Insight[] = [
     description: 'В 80% дней, когда ты спал < 6 часов, на следующий день было настроение ≤ 4 и включён тег «Жор».',
     category: 'sleep',
     prism: 'pattern',
+    layer: 'patterns',
     strength: 0.85,
-    advice: 'Это зона добродетели Умеренность (сон). Попробуй неделю придерживаться коридора 7–8 часов и сравни результат.',
+    observationCount: 18,
+    advice: 'Попробуй неделю придерживаться коридора 7–8 часов и сравни результат.',
     chartData: [
       { name: '<5ч', value1: 3.2, value2: 2.8 },
       { name: '5-6ч', value1: 4.5, value2: 4.1 },
@@ -138,8 +191,10 @@ export const mockInsights: Insight[] = [
     description: 'В дни с тренировкой настроение в среднем на 1.5 пункта выше, чем без неё.',
     category: 'body',
     prism: 'archetype',
+    layer: 'energy',
     strength: 0.78,
-    advice: 'Архетип Героя в действии — физическая дисциплина напрямую улучшает эмоциональное состояние.',
+    observationCount: 14,
+    advice: 'Физическая дисциплина напрямую улучшает эмоциональное состояние. Попробуй короткие тренировки в дни спада.',
     chartData: [
       { name: 'Пн', value1: 6, value2: 4 },
       { name: 'Вт', value1: 7, value2: 5 },
@@ -156,8 +211,10 @@ export const mockInsights: Insight[] = [
     description: 'Когда ты проводишь в соцсетях больше 2 часов подряд, энергия к вечеру ниже на 2.5 пункта.',
     category: 'psyche',
     prism: 'pattern',
+    layer: 'patterns',
     strength: 0.76,
-    advice: 'Добродетель Умеренность: установи таймер на 30 минут для соцсетей. Заметь разницу через неделю.',
+    observationCount: 11,
+    advice: 'Установи таймер на 30 минут для соцсетей. Заметь разницу через неделю.',
     chartData: [
       { name: '<30м', value1: 7.5 },
       { name: '30м-1ч', value1: 6.8 },
@@ -171,7 +228,9 @@ export const mockInsights: Insight[] = [
     description: 'После прогулки > 30 мин энергия вырастает в среднем на 2 пункта в течение 3 часов.',
     category: 'body',
     prism: 'pattern',
+    layer: 'energy',
     strength: 0.81,
+    observationCount: 9,
     advice: 'Используй прогулку как инструмент восстановления. Особенно эффективно после обеда.',
     chartData: [
       { name: 'До', value1: 4.5 },
@@ -182,11 +241,13 @@ export const mockInsights: Insight[] = [
   },
   {
     id: '5',
-    title: 'Алкаголь разрушает следующий день',
-    description: 'В 90% случаев после тега «Алкаголь» настроение на следующий день ниже на 2+ пункта.',
+    title: 'Алкоголь разрушает следующий день',
+    description: 'В 90% случаев после тега «Алкоголь» настроение на следующий день ниже на 2+ пункта.',
     category: 'body',
     prism: 'virtue',
+    layer: 'lenses',
     strength: 0.92,
+    observationCount: 8,
     advice: 'Добродетель Умеренность. Отслеживай частоту — даже 1 раз в неделю имеет кумулятивный эффект.',
     chartData: [
       { name: 'День до', value1: 7, value2: 9500 },
@@ -201,6 +262,7 @@ export const mockInsights: Insight[] = [
     description: 'Много чтения, рефлексии и медитации. Ты провёл 12 часов в режиме анализа и самопознания.',
     category: 'psyche',
     prism: 'archetype',
+    layer: 'lenses',
     strength: 0.65,
     advice: 'Мудрец силён в понимании, но может увязнуть в раздумьях. Добавь действие — подключи Героя.',
     chartData: [
@@ -216,11 +278,51 @@ export const mockInsights: Insight[] = [
     description: 'В 3 из 4 случаев после конфликта у тебя была паническая атака в тот же или следующий день.',
     category: 'psyche',
     prism: 'pattern',
+    layer: 'patterns',
     strength: 0.88,
-    advice: 'Добродетель Мужество — не избегай конфликта, но готовь инструменты: дыхание, прогулка, медитация сразу после.',
+    observationCount: 12,
+    advice: 'Не избегай конфликта, но готовь инструменты: дыхание, прогулка, медитация сразу после.',
     chartData: [
       { name: 'С конфликтом', value1: 3.2 },
       { name: 'Без', value1: 0.8 },
+    ],
+  },
+  {
+    id: '8',
+    title: 'Ценность «Близость» падает в конце недели',
+    description: 'По пятницам и субботам оценка ценности «Близость» снижается до 3–4, хотя в начале недели — 7–8.',
+    category: 'relations',
+    layer: 'lenses',
+    strength: 0.71,
+    observationCount: 10,
+    advice: 'Запланируй время с близкими в конце недели — это помогает выровнять баланс.',
+    chartData: [
+      { name: 'Пн', value1: 7.5 },
+      { name: 'Вт', value1: 7.2 },
+      { name: 'Ср', value1: 6.8 },
+      { name: 'Чт', value1: 6.1 },
+      { name: 'Пт', value1: 4.2 },
+      { name: 'Сб', value1: 3.8 },
+      { name: 'Вс', value1: 5.5 },
+    ],
+  },
+  {
+    id: '9',
+    title: 'Пиковая энергия — утром с 9 до 11',
+    description: 'Снимки настроения показывают: твоя энергия стабильно выше 7 в промежутке 9:00–11:00.',
+    category: 'productivity',
+    layer: 'energy',
+    strength: 0.83,
+    observationCount: 22,
+    advice: 'Ставь самые сложные задачи на утро. Избегай встреч и переписки до 9:00.',
+    chartData: [
+      { name: '7:00', value1: 5.2 },
+      { name: '9:00', value1: 7.8 },
+      { name: '11:00', value1: 7.5 },
+      { name: '13:00', value1: 5.9 },
+      { name: '15:00', value1: 5.1 },
+      { name: '17:00', value1: 6.3 },
+      { name: '19:00', value1: 5.5 },
     ],
   },
 ];

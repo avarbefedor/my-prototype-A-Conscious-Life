@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Lightbulb, ChevronDown, ChevronUp, TrendingUp, HelpCircle, Brain, Shield, Sparkles } from 'lucide-react';
+import { Lightbulb, ChevronDown, ChevronUp, TrendingUp, HelpCircle, Brain, Zap, Layers } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { mockInsights } from '../data/mockData';
 import { Insight } from '../data/types';
+import { isLayerUnlocked, useDevUnlock } from '../data/store';
+import { LockedInsight } from '../components/LockedInsight';
 
 const CATEGORIES = [
   { id: 'all', label: 'Все' },
@@ -11,13 +13,14 @@ const CATEGORIES = [
   { id: 'body', label: 'Тело' },
   { id: 'psyche', label: 'Психика' },
   { id: 'productivity', label: 'Продуктивность' },
+  { id: 'relations', label: 'Отношения' },
 ] as const;
 
-const PRISM_FILTERS = [
-  { id: 'all', label: 'Все призмы', icon: null },
-  { id: 'pattern', label: 'Паттерн', icon: Brain, color: '#3b82f6' },
-  { id: 'virtue', label: 'Добродетель', icon: Shield, color: '#14b8a6' },
-  { id: 'archetype', label: 'Архетип', icon: Sparkles, color: '#8b5cf6' },
+const LAYER_FILTERS = [
+  { id: 'all', label: 'Все', icon: null, color: '#6b7280' },
+  { id: 'patterns', label: 'Паттерны', icon: Brain, color: '#3b82f6' },
+  { id: 'energy', label: 'Энергия', icon: Zap, color: '#f97316' },
+  { id: 'lenses', label: 'Линзы', icon: Layers, color: '#8b5cf6' },
 ] as const;
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -28,37 +31,48 @@ const CATEGORY_COLORS: Record<string, string> = {
   relations: '#f43f5e',
 };
 
-const PRISM_COLORS: Record<string, string> = {
-  pattern: '#3b82f6',
-  virtue: '#14b8a6',
-  archetype: '#8b5cf6',
+const LAYER_COLORS: Record<string, string> = {
+  base: '#6b7280',
+  patterns: '#3b82f6',
+  energy: '#f97316',
+  lenses: '#8b5cf6',
 };
 
-const PRISM_LABELS: Record<string, string> = {
-  pattern: 'Паттерн',
-  virtue: 'Добродетель',
-  archetype: 'Архетип',
+const LAYER_LABELS: Record<string, string> = {
+  base: 'База',
+  patterns: 'Паттерны',
+  energy: 'Энергия',
+  lenses: 'Линзы',
 };
 
 export function InsightsPage() {
   const [filter, setFilter] = useState('all');
-  const [prismFilter, setPrismFilter] = useState('all');
+  const [layerFilter, setLayerFilter] = useState('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAdvice, setShowAdvice] = useState<string | null>(null);
+  useDevUnlock(); // subscribe to layer unlock changes
 
   let filtered = filter === 'all'
     ? mockInsights
     : mockInsights.filter((i) => i.category === filter);
 
-  if (prismFilter !== 'all') {
-    filtered = filtered.filter((i) => i.prism === prismFilter);
+  if (layerFilter !== 'all') {
+    filtered = filtered.filter((i) => i.layer === layerFilter);
   }
+
+  const isLocked = (i: Insight) => i.layer !== 'base' && !isLayerUnlocked(i.layer as 'patterns' | 'energy' | 'lenses');
+  const lockedCount = mockInsights.filter(isLocked).length;
 
   return (
     <div className="flex flex-col h-full">
       <div className="px-5 pt-6 pb-1">
         <h1 className="text-foreground">Инсайты</h1>
         <p className="text-sm text-muted-foreground mt-1">Что система заметила за последний месяц</p>
+        {lockedCount > 0 && (
+          <div className="mt-2 px-3 py-2 rounded-xl bg-violet-50 border border-violet-100 text-xs text-violet-600">
+            🔒 {lockedCount} инсайта ждут тебя в платных слоях
+          </div>
+        )}
       </div>
 
       {/* Category Filters */}
@@ -78,24 +92,27 @@ export function InsightsPage() {
         ))}
       </div>
 
-      {/* Prism Filters */}
+      {/* Layer Filters */}
       <div className="px-5 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
-        {PRISM_FILTERS.map((pf) => {
-          const Icon = pf.icon;
-          const isActive = prismFilter === pf.id;
+        {LAYER_FILTERS.map((lf) => {
+          const Icon = lf.icon;
+          const isActive = layerFilter === lf.id;
           return (
             <button
-              key={pf.id}
-              onClick={() => setPrismFilter(pf.id)}
+              key={lf.id}
+              onClick={() => setLayerFilter(lf.id)}
               className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all cursor-pointer border ${
                 isActive
                   ? 'border-current'
                   : 'bg-background text-muted-foreground border-border hover:border-primary/30'
               }`}
-              style={isActive && pf.id !== 'all' ? { color: (pf as any).color, borderColor: (pf as any).color, backgroundColor: `${(pf as any).color}10` } : undefined}
+              style={isActive && lf.id !== 'all'
+                ? { color: lf.color, borderColor: lf.color, backgroundColor: `${lf.color}10` }
+                : undefined
+              }
             >
               {Icon && <Icon className="w-3 h-3" />}
-              {pf.label}
+              {lf.label}
             </button>
           );
         })}
@@ -103,16 +120,20 @@ export function InsightsPage() {
 
       {/* Insights list */}
       <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-3">
-        {filtered.map((insight) => (
-          <InsightCard
-            key={insight.id}
-            insight={insight}
-            isExpanded={expandedId === insight.id}
-            onToggle={() => setExpandedId(expandedId === insight.id ? null : insight.id)}
-            showAdvice={showAdvice === insight.id}
-            onToggleAdvice={() => setShowAdvice(showAdvice === insight.id ? null : insight.id)}
-          />
-        ))}
+        {filtered.map((insight) =>
+          isLocked(insight) ? (
+            <LockedInsight key={insight.id} insight={insight} />
+          ) : (
+            <InsightCard
+              key={insight.id}
+              insight={insight}
+              isExpanded={expandedId === insight.id}
+              onToggle={() => setExpandedId(expandedId === insight.id ? null : insight.id)}
+              showAdvice={showAdvice === insight.id}
+              onToggleAdvice={() => setShowAdvice(showAdvice === insight.id ? null : insight.id)}
+            />
+          )
+        )}
 
         {filtered.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
@@ -133,11 +154,14 @@ function InsightCard({ insight, isExpanded, onToggle, showAdvice, onToggleAdvice
   onToggleAdvice: () => void;
 }) {
   const color = CATEGORY_COLORS[insight.category] || '#6b7280';
-  const prismColor = insight.prism ? PRISM_COLORS[insight.prism] : undefined;
-  const prismLabel = insight.prism ? PRISM_LABELS[insight.prism] : undefined;
+  const layerColor = LAYER_COLORS[insight.layer] ?? color;
+  const layerLabel = LAYER_LABELS[insight.layer];
 
   return (
-    <div className="bg-card rounded-2xl border border-border overflow-hidden">
+    <div
+      className="bg-card rounded-2xl border border-border overflow-hidden"
+      style={{ borderLeftColor: layerColor, borderLeftWidth: 3 }}
+    >
       <button
         onClick={onToggle}
         className="w-full p-4 text-left cursor-pointer flex items-start gap-3"
@@ -151,15 +175,18 @@ function InsightCard({ insight, isExpanded, onToggle, showAdvice, onToggleAdvice
         <div className="flex-1 min-w-0">
           <p className="text-sm text-foreground">{insight.title}</p>
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{insight.description}</p>
-          {/* Prism badge + strength */}
+          {/* Layer badge + strength */}
           <div className="flex items-center gap-2 mt-2">
-            {prismLabel && (
+            {layerLabel && (
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded-md"
-                style={{ backgroundColor: `${prismColor}15`, color: prismColor }}
+                style={{ backgroundColor: `${layerColor}15`, color: layerColor }}
               >
-                {prismLabel}
+                {layerLabel}
               </span>
+            )}
+            {insight.observationCount && (
+              <span className="text-[10px] text-muted-foreground">{insight.observationCount} дн.</span>
             )}
             <div className="h-1.5 flex-1 bg-accent rounded-full overflow-hidden">
               <div
@@ -187,7 +214,7 @@ function InsightCard({ insight, isExpanded, onToggle, showAdvice, onToggleAdvice
             <div className="px-4 pb-4 space-y-3">
               <div className="bg-accent/30 rounded-xl p-3" style={{ height: 160 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  {insight.chartData[0].value2 !== undefined ? (
+                  {insight.chartData[0]?.value2 !== undefined ? (
                     <BarChart data={insight.chartData} barGap={2}>
                       <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                       <YAxis hide />

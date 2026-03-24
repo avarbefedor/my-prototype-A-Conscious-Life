@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Moon, Dumbbell, Footprints, Smile } from 'lucide-react';
-import { useDays } from '../data/store';
+import { useDays, isLayerUnlocked, useDevUnlock } from '../data/store';
 import { DayLog, ACTIVITIES } from '../data/types';
 
 const MOOD_COLORS: Record<number, string> = {
@@ -344,13 +344,31 @@ function WeekView({ days, offset, setOffset, onDayClick }: {
   );
 }
 
+const CHARGING_ACTIVITY_IDS = new Set(['sport', 'reading', 'socializing', 'family', 'hobby', 'walking', 'rest', 'meditation', 'cooking']);
+const DRAINING_ACTIVITY_IDS = new Set(['work', 'social_media', 'commute']);
+
 function WeekSummary({ days }: { days: DayLog[] }) {
+  useDevUnlock(); // subscribe to layer unlock changes
   if (days.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">Нет данных за эту неделю</p>;
 
   const avgMood = (days.reduce((s, d) => s + d.mood, 0) / days.length).toFixed(1);
   const avgSleep = (days.reduce((s, d) => s + d.sleep.hours, 0) / days.length).toFixed(1);
   const totalSteps = days.reduce((s, d) => s + d.steps, 0);
   const trainingDays = days.filter((d) => d.training).length;
+
+  const energyLayerActive = isLayerUnlocked('energy');
+  let chargingMins = 0, drainingMins = 0;
+  if (energyLayerActive) {
+    days.forEach((d) => {
+      (d.activities || []).filter((a) => a.endTime).forEach((entry) => {
+        const [sh, sm] = entry.startTime.split(':').map(Number);
+        const [eh, em] = entry.endTime!.split(':').map(Number);
+        const mins = (eh * 60 + em) - (sh * 60 + sm);
+        if (CHARGING_ACTIVITY_IDS.has(entry.activityId)) chargingMins += mins;
+        else if (DRAINING_ACTIVITY_IDS.has(entry.activityId)) drainingMins += mins;
+      });
+    });
+  }
 
   const activityMinutes: Record<string, number> = {};
   days.forEach((d) => {
@@ -374,6 +392,15 @@ function WeekSummary({ days }: { days: DayLog[] }) {
         <Stat icon={<Footprints className="w-4 h-4 text-orange-500" />} label="Всего шагов" value={totalSteps.toLocaleString('ru-RU')} />
         <Stat icon={<Dumbbell className="w-4 h-4 text-emerald-500" />} label="Тренировки" value={`${trainingDays}`} suffix={` из ${days.length}`} />
       </div>
+
+      {energyLayerActive && (chargingMins > 0 || drainingMins > 0) && (
+        <div className="flex items-center gap-2 pt-1 border-t border-border">
+          <span className="text-xs text-muted-foreground flex-1">Энергобаланс</span>
+          <span className="text-xs" style={{ color: '#10b981' }}>⚡ {Math.round(chargingMins / 60 * 10) / 10}ч заряжающих</span>
+          <span className="text-xs text-muted-foreground">vs</span>
+          <span className="text-xs" style={{ color: '#f97316' }}>🔋 {Math.round(drainingMins / 60 * 10) / 10}ч истощающих</span>
+        </div>
+      )}
 
       {topActivities.length > 0 && (
         <div>

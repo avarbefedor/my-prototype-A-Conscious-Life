@@ -1,17 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Target, Shield, Bell, Smartphone, Moon as MoonIcon, Settings, Sliders, Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, Check, GripVertical } from 'lucide-react';
-import { ARCHETYPES, VIRTUES, ACTIVITIES } from '../data/types';
-import { useDays, detectArchetype, useActivities } from '../data/store';
+import { User, Target, Bell, Smartphone, Moon as MoonIcon, Settings, Sliders, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Check, GripVertical, Layers, ChevronRight, Unlock } from 'lucide-react';
+import { ARCHETYPES, ACTIVITIES, BUILT_IN_LENSES, ACT_VALUES_BANK } from '../data/types';
+import { useDays, detectArchetype, useActivities, useLenses, useDevUnlock } from '../data/store';
 import { toast } from 'sonner';
-
-const VIRTUE_DESCRIPTIONS: Record<string, { desc: string; example: string }> = {
-  'Мудрость': { desc: 'Способность видеть суть вещей', example: 'Замедлился и подумал перед решением' },
-  'Умеренность': { desc: 'Контроль желаний и эмоций', example: 'Отказался от лишнего бокала, лёг вовремя' },
-  'Мужество': { desc: 'Действие вопреки страху и лени', example: 'Пошёл на тренировку, хотя не хотелось' },
-  'Справедливость': { desc: 'Честность и забота о других', example: 'Помог коллеге, признал свою ошибку' },
-};
 
 const GOALS = [
   { id: 'weight', label: 'Вес' },
@@ -44,12 +37,14 @@ const EMOJI_OPTIONS = [
 export function ProfilePage() {
   const { days } = useDays();
   const { activities, addActivity, updateActivity, deleteActivity, reorderActivities } = useActivities();
+  const { activeLensIds, lensAnchors, toggleLens, setLensAnchors } = useLenses();
   const { theme, setTheme } = useTheme();
   const isDark = theme === 'dark';
   const [name, setName] = useState('Пользователь');
   const [selectedGoals, setSelectedGoals] = useState(['mood', 'productivity']);
-  const [showVirtues, setShowVirtues] = useState(true);
   const [remindTime, setRemindTime] = useState(true);
+  const { unlocked: devAllUnlocked, toggle: toggleDevUnlock } = useDevUnlock();
+  const [expandedLens, setExpandedLens] = useState<string | null>(null);
 
   // Activity editor state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -407,50 +402,16 @@ export function ProfilePage() {
           </div>
         </div>
 
-        {/* Archetypes */}
-        <div className="bg-card rounded-2xl p-4 border border-border space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Архетипы</span>
-            <span className="text-[10px] text-muted-foreground">определены автоматически</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="relative w-24 h-24 shrink-0">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                {(() => {
-                  let offset = 0;
-                  return ARCHETYPES.map((a) => {
-                    const pct = archetypePercents[a.id as keyof typeof archetypePercents] || 0;
-                    const circumference = 2 * Math.PI * 40;
-                    const dashLength = (pct / 100) * circumference;
-                    const dashOffset = -(offset / 100) * circumference;
-                    offset += pct;
-                    return (
-                      <circle key={a.id} cx="50" cy="50" r="40" fill="none" stroke={ARCHETYPE_COLORS[a.id]} strokeWidth="12" strokeDasharray={`${dashLength} ${circumference - dashLength}`} strokeDashoffset={dashOffset} strokeLinecap="round" />
-                    );
-                  });
-                })()}
-              </svg>
-            </div>
-            <div className="flex-1 space-y-1.5">
-              {ARCHETYPES.map((a) => (
-                <div key={a.id} className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ARCHETYPE_COLORS[a.id] }} />
-                  <span className="text-xs flex-1">{a.name}</span>
-                  <span className="text-xs text-muted-foreground">{archetypePercents[a.id as keyof typeof archetypePercents]}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {ARCHETYPES.map((a) => (
-              <div key={a.id} className="p-3 rounded-xl border border-border" style={{ borderLeftColor: ARCHETYPE_COLORS[a.id], borderLeftWidth: 3 }}>
-                <p className="text-sm">{a.name}</p>
-                <p className="text-[10px] text-muted-foreground">{a.nameEn}</p>
-                <p className="text-[10px] text-muted-foreground mt-1">{a.traits.join(', ')}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* My Lenses */}
+        <MyLensesSection
+          activeLensIds={activeLensIds}
+          lensAnchors={lensAnchors}
+          expandedLens={expandedLens}
+          archetypePercents={archetypePercents}
+          onToggle={toggleLens}
+          onExpand={(id) => setExpandedLens(expandedLens === id ? null : id)}
+          onSetAnchors={setLensAnchors}
+        />
 
         {/* Top Activities */}
         {topActivities.length > 0 && (
@@ -483,34 +444,6 @@ export function ProfilePage() {
           </div>
         )}
 
-        {/* Virtues */}
-        <div className="bg-card rounded-2xl p-4 border border-border space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-teal-500" />
-              <span className="text-sm">Добродетели</span>
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <span className="text-xs text-muted-foreground">В ритуале</span>
-              <div
-                onClick={() => setShowVirtues(!showVirtues)}
-                className={`w-10 h-6 rounded-full flex items-center transition-colors cursor-pointer ${showVirtues ? 'bg-teal-500' : 'bg-switch-background'}`}
-              >
-                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform mx-1 ${showVirtues ? 'translate-x-4' : ''}`} />
-              </div>
-            </label>
-          </div>
-          {VIRTUES.map((v) => {
-            const info = VIRTUE_DESCRIPTIONS[v];
-            return (
-              <div key={v} className="p-3 rounded-xl bg-accent/30">
-                <p className="text-sm">{v}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{info?.desc}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 italic">Пример: {info?.example}</p>
-              </div>
-            );
-          })}
-        </div>
 
         {/* Settings */}
         <div className="bg-card rounded-2xl p-4 border border-border space-y-3">
@@ -519,9 +452,200 @@ export function ProfilePage() {
             <span className="text-sm">Настройки</span>
           </div>
           <SettingRow icon={<MoonIcon className="w-4 h-4" />} label="Тёмная тема" enabled={isDark} onToggle={() => setTheme(isDark ? 'light' : 'dark')} />
+          <SettingRow icon={<Unlock className="w-4 h-4" />} label="Все слои открыты (dev)" enabled={devAllUnlocked} onToggle={toggleDevUnlock} />
           <SettingRow icon={<Smartphone className="w-4 h-4" />} label="Подключить трекер шагов" />
           <SettingRow icon={<Bell className="w-4 h-4" />} label="Напоминание в 21:00" enabled={remindTime} onToggle={() => setRemindTime(!remindTime)} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MyLensesSection({
+  activeLensIds,
+  lensAnchors,
+  expandedLens,
+  archetypePercents,
+  onToggle,
+  onExpand,
+  onSetAnchors,
+}: {
+  activeLensIds: string[];
+  lensAnchors: Record<string, string[]>;
+  expandedLens: string | null;
+  archetypePercents: Record<string, number>;
+  onToggle: (id: string) => void;
+  onExpand: (id: string) => void;
+  onSetAnchors: (lensId: string, anchorIds: string[]) => void;
+}) {
+  return (
+    <div className="bg-card rounded-2xl p-4 border border-border space-y-3">
+      <div className="flex items-center gap-2">
+        <Layers className="w-5 h-5 text-violet-500" />
+        <span className="text-sm">Мои линзы</span>
+        <span className="text-[10px] text-muted-foreground ml-auto">отображаются в ритуале</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Линзы — это философские фреймы для интерпретации дня. Выбери 1–2, которые тебе близки.
+      </p>
+      <div className="space-y-2">
+        {BUILT_IN_LENSES.map((lens) => {
+          const isActive = activeLensIds.includes(lens.id);
+          const isExpanded = expandedLens === lens.id;
+          return (
+            <div
+              key={lens.id}
+              className="rounded-xl border border-border overflow-hidden transition-all"
+              style={isActive ? { borderColor: `${lens.color}40` } : {}}
+            >
+              {/* Lens row */}
+              <div
+                className="flex items-center gap-3 p-3"
+                style={isActive ? { backgroundColor: `${lens.color}08` } : {}}
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0"
+                  style={{ backgroundColor: `${lens.color}20`, color: lens.color }}
+                >
+                  {lens.anchors[0]?.emoji ?? '🔮'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm" style={isActive ? { color: lens.color } : {}}>{lens.name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{lens.description}</p>
+                </div>
+                {/* Expand button */}
+                <button
+                  onClick={() => onExpand(lens.id)}
+                  className="p-1 rounded cursor-pointer text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                >
+                  <ChevronRight
+                    className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                  />
+                </button>
+                {/* Toggle */}
+                <div
+                  onClick={() => onToggle(lens.id)}
+                  className={`w-10 h-6 rounded-full flex items-center transition-colors cursor-pointer shrink-0`}
+                  style={{ backgroundColor: isActive ? lens.color : undefined }}
+                  data-inactive={!isActive || undefined}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform mx-1 ${isActive ? 'translate-x-4' : ''}`}
+                    style={!isActive ? { backgroundColor: '#d1d5db' } : {}}
+                  />
+                </div>
+              </div>
+
+              {/* Expanded content */}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-3 pb-3 space-y-2 border-t border-border/50">
+                      {/* Jungian: distribution chart */}
+                      {lens.id === 'jungian' && (
+                        <div className="pt-3">
+                          <div className="flex items-center gap-4">
+                            <div className="relative w-20 h-20 shrink-0">
+                              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                                {(() => {
+                                  let offset = 0;
+                                  return ARCHETYPES.map((a) => {
+                                    const pct = archetypePercents[a.id as keyof typeof archetypePercents] || 0;
+                                    const circumference = 2 * Math.PI * 40;
+                                    const dashLength = (pct / 100) * circumference;
+                                    const dashOffset = -(offset / 100) * circumference;
+                                    offset += pct;
+                                    return (
+                                      <circle
+                                        key={a.id}
+                                        cx="50" cy="50" r="40"
+                                        fill="none"
+                                        stroke={a.id === 'sage' ? '#6366f1' : a.id === 'ruler' ? '#f59e0b' : a.id === 'hero' ? '#ef4444' : '#10b981'}
+                                        strokeWidth="12"
+                                        strokeDasharray={`${dashLength} ${circumference - dashLength}`}
+                                        strokeDashoffset={dashOffset}
+                                        strokeLinecap="round"
+                                      />
+                                    );
+                                  });
+                                })()}
+                              </svg>
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              {lens.anchors.map((a) => (
+                                <div key={a.id} className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: a.color }} />
+                                  <span className="text-xs flex-1">{a.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {archetypePercents[a.id as keyof typeof archetypePercents] ?? 0}%
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ACT Values: value picker */}
+                      {lens.id === 'act-values' && (
+                        <div className="pt-3 space-y-2">
+                          <p className="text-xs text-muted-foreground">Выбери 3–5 ценностей:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ACT_VALUES_BANK.map((v) => {
+                              const selected = (lensAnchors['act-values'] ?? ['closeness','creativity','health','honesty','growth']).includes(v.id);
+                              return (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const current = lensAnchors['act-values'] ?? ['closeness','creativity','health','honesty','growth'];
+                                    const next = selected
+                                      ? current.filter((id) => id !== v.id)
+                                      : current.length < 5 ? [...current, v.id] : current;
+                                    onSetAnchors('act-values', next);
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    selected
+                                      ? 'border-emerald-400 text-emerald-700 bg-emerald-50'
+                                      : 'border-border text-muted-foreground hover:border-emerald-300'
+                                  }`}
+                                >
+                                  {v.emoji} {v.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Default: show anchors grid */}
+                      {lens.id !== 'jungian' && lens.id !== 'act-values' && (
+                        <div className="pt-3 grid grid-cols-2 gap-1.5">
+                          {lens.anchors.map((anchor) => (
+                            <div
+                              key={anchor.id}
+                              className="p-2.5 rounded-xl border border-border"
+                              style={{ borderLeftColor: anchor.color ?? lens.color, borderLeftWidth: 3 }}
+                            >
+                              <p className="text-xs">{anchor.emoji} {anchor.name}</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{anchor.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
