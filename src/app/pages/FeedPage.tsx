@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Moon, Dumbbell, Footprints, Smile } from 'lucide-react';
-import { useDays, isLayerUnlocked, useDevUnlock } from '../data/store';
+import { useDays, isLayerUnlocked, useDevUnlock, useEvents } from '../data/store';
 import { DayLog, ACTIVITIES } from '../data/types';
 
 const MOOD_COLORS: Record<number, string> = {
@@ -14,10 +14,10 @@ const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 export function FeedPage() {
   const { days } = useDays();
-  const [view, setView] = useState<'week' | 'month' | 'activities'>('week');
+  const { events } = useEvents();
+  const [view, setView] = useState<'week' | 'month'>('week');
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
-  const [activityPeriod, setActivityPeriod] = useState<'day' | 'week' | 'month'>('week');
   const navigate = useNavigate();
 
   return (
@@ -31,7 +31,6 @@ export function FeedPage() {
           {([
             { key: 'week', label: 'Неделя' },
             { key: 'month', label: 'Месяц' },
-            { key: 'activities', label: 'Активности' },
           ] as const).map((v) => (
             <button
               key={v.key}
@@ -48,11 +47,9 @@ export function FeedPage() {
 
       <div className="flex-1 overflow-y-auto px-5 pb-6">
         {view === 'week' ? (
-          <WeekView days={days} offset={weekOffset} setOffset={setWeekOffset} onDayClick={(d) => navigate(`/day/${d}`)} />
-        ) : view === 'month' ? (
-          <MonthView days={days} offset={monthOffset} setOffset={setMonthOffset} onDayClick={(d) => navigate(`/day/${d}`)} />
+          <WeekView days={days} events={events} offset={weekOffset} setOffset={setWeekOffset} onDayClick={(d) => navigate(`/day/${d}`)} />
         ) : (
-          <ActivityStatsView days={days} period={activityPeriod} setPeriod={setActivityPeriod} />
+          <MonthView days={days} events={events} offset={monthOffset} setOffset={setMonthOffset} onDayClick={(d) => navigate(`/day/${d}`)} />
         )}
       </div>
     </div>
@@ -245,8 +242,9 @@ function ActivityStatsView({ days, period, setPeriod }: {
 
 // ---- Existing Week / Month views ----
 
-function WeekView({ days, offset, setOffset, onDayClick }: {
+function WeekView({ days, events, offset, setOffset, onDayClick }: {
   days: DayLog[];
+  events: { id: string; emoji: string; label: string }[];
   offset: number;
   setOffset: (o: number) => void;
   onDayClick: (date: string) => void;
@@ -292,51 +290,61 @@ function WeekView({ days, offset, setOffset, onDayClick }: {
       </div>
 
       <div className="grid grid-cols-7 gap-2">
-        {weekDays.map((wd) => (
-          <button
-            key={wd.date}
-            onClick={() => wd.log && onDayClick(wd.date)}
-            className={`flex flex-col items-center p-2 rounded-2xl transition-all cursor-pointer border ${
-              wd.isToday ? 'border-primary/30 bg-primary/5' : 'border-transparent hover:bg-accent'
-            }`}
-          >
-            <span className="text-[10px] text-muted-foreground">{wd.dayName}</span>
-            <span className={`text-sm mb-1 ${wd.isToday ? 'text-primary' : ''}`}>{wd.dayNum}</span>
-            {wd.log ? (
-              <>
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs mb-1"
-                  style={{ backgroundColor: MOOD_COLORS[wd.log.mood] || '#9ca3af' }}
-                >
-                  {wd.log.mood}
-                </div>
-                {wd.log.activities && wd.log.activities.filter((a) => a.endTime).length > 0 && (
-                  <div className="flex gap-px w-full h-1 rounded-full overflow-hidden mt-0.5">
-                    {wd.log.activities.filter((a) => a.endTime).slice(0, 5).map((entry) => {
-                      const act = ACTIVITIES.find((a) => a.id === entry.activityId);
-                      return (
-                        <div
-                          key={entry.id}
-                          className="flex-1 rounded-sm"
-                          style={{ backgroundColor: act?.color || '#94a3b8' }}
-                        />
-                      );
-                    })}
+        {weekDays.map((wd) => {
+          const todayStr = new Date().toISOString().split('T')[0];
+          const isLiveToday = wd.isToday && wd.date === todayStr;
+          return (
+            <button
+              key={wd.date}
+              onClick={() => (wd.log || wd.isToday) ? onDayClick(wd.date) : undefined}
+              className={`flex flex-col items-center p-2 rounded-2xl transition-all cursor-pointer border ${
+                wd.isToday ? 'border-primary/30 bg-primary/5' : 'border-transparent hover:bg-accent'
+              }`}
+            >
+              <span className="text-[10px] text-muted-foreground">{wd.dayName}</span>
+              <span className={`text-sm mb-1 ${wd.isToday ? 'text-primary' : ''}`}>{wd.dayNum}</span>
+              {wd.log ? (
+                <>
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs mb-1 relative"
+                    style={{ backgroundColor: MOOD_COLORS[wd.log.mood] || '#9ca3af' }}
+                  >
+                    {wd.log.mood}
+                    {isLiveToday && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-card" />
+                    )}
                   </div>
-                )}
-                <div className="flex gap-0.5 flex-wrap justify-center mt-0.5">
-                  {wd.log.training && <span className="text-[9px]">💪</span>}
-                  {wd.log.events.some((e) => e.eventId === 'alcohol') && <span className="text-[9px]">🍷</span>}
-                  {wd.log.events.some((e) => e.eventId === 'binge') && <span className="text-[9px]">🍔</span>}
+                  {wd.log.activities && wd.log.activities.filter((a) => a.endTime).length > 0 && (
+                    <div className="flex gap-px w-full h-1.5 rounded-full overflow-hidden mt-0.5">
+                      {wd.log.activities.filter((a) => a.endTime).slice(0, 5).map((entry) => {
+                        const act = ACTIVITIES.find((a) => a.id === entry.activityId);
+                        return (
+                          <div
+                            key={entry.id}
+                            className="flex-1 rounded-sm"
+                            style={{ backgroundColor: act?.color || '#94a3b8' }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                  {wd.log.events.length > 0 && (
+                    <div className="flex gap-px flex-wrap justify-center mt-1">
+                      {wd.log.events.slice(0, 3).map((e) => {
+                        const tag = events.find((t) => t.id === e.eventId);
+                        return tag ? <span key={e.eventId} className="text-[9px]">{tag.emoji}</span> : null;
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-muted-foreground text-xs mb-1">
+                  {isLiveToday ? <span className="w-2 h-2 rounded-full bg-primary/40" /> : '—'}
                 </div>
-              </>
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-muted-foreground text-xs mb-1">
-                —
-              </div>
-            )}
-          </button>
-        ))}
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <WeekSummary days={weekDays.filter((w) => w.log).map((w) => w.log!)} />
@@ -449,8 +457,9 @@ function Stat({ icon, label, value, suffix }: { icon: React.ReactNode; label: st
   );
 }
 
-function MonthView({ days, offset, setOffset, onDayClick }: {
+function MonthView({ days, events, offset, setOffset, onDayClick }: {
   days: DayLog[];
+  events: { id: string; emoji: string; label: string }[];
   offset: number;
   setOffset: (o: number) => void;
   onDayClick: (date: string) => void;
@@ -521,25 +530,52 @@ function MonthView({ days, offset, setOffset, onDayClick }: {
       <div className="grid grid-cols-7 gap-1">
         {calendarDays.map((cell) => {
           const todayStr = new Date().toISOString().split('T')[0];
+          const completedActivities = (cell.log?.activities || []).filter((a) => a.endTime);
           return (
             <button
               key={cell.date}
-              onClick={() => cell.log && onDayClick(cell.date)}
-              className={`aspect-square rounded-lg flex items-center justify-center text-xs transition-all cursor-pointer relative ${
+              onClick={() => (cell.log || cell.date === todayStr) ? onDayClick(cell.date) : undefined}
+              className={`rounded-xl flex flex-col items-center justify-start pt-1 pb-1 px-0.5 text-xs transition-all cursor-pointer relative min-h-[52px] ${
                 !cell.inMonth ? 'opacity-30' : ''
               } ${cell.date === todayStr ? 'ring-2 ring-primary/30' : ''}`}
               style={{
                 backgroundColor: cell.log
-                  ? `${MOOD_COLORS[cell.log.mood]}20`
+                  ? `${MOOD_COLORS[cell.log.mood]}18`
                   : undefined,
               }}
             >
-              <span className={cell.log ? '' : 'text-muted-foreground'}>{cell.dayNum}</span>
+              <span className={`${cell.log ? '' : 'text-muted-foreground'} ${cell.date === todayStr ? 'text-primary' : ''}`}>{cell.dayNum}</span>
               {cell.log && (
-                <div
-                  className="absolute bottom-0.5 w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: MOOD_COLORS[cell.log.mood] }}
-                />
+                <>
+                  {completedActivities.length > 0 && (
+                    <div className="flex gap-px w-full h-1 rounded-full overflow-hidden mt-0.5 px-0.5">
+                      {completedActivities.slice(0, 4).map((entry) => {
+                        const act = ACTIVITIES.find((a) => a.id === entry.activityId);
+                        return (
+                          <div
+                            key={entry.id}
+                            className="flex-1 rounded-sm"
+                            style={{ backgroundColor: act?.color || '#94a3b8' }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                  {cell.log.events.length > 0 && (
+                    <div className="flex gap-px flex-wrap justify-center mt-0.5">
+                      {cell.log.events.slice(0, 2).map((e) => {
+                        const tag = events.find((t) => t.id === e.eventId);
+                        return tag ? <span key={e.eventId} className="text-[8px]">{tag.emoji}</span> : null;
+                      })}
+                    </div>
+                  )}
+                  {completedActivities.length === 0 && cell.log.events.length === 0 && (
+                    <div
+                      className="w-1.5 h-1.5 rounded-full mt-0.5"
+                      style={{ backgroundColor: MOOD_COLORS[cell.log.mood] }}
+                    />
+                  )}
+                </>
               )}
             </button>
           );
