@@ -73,89 +73,133 @@ export function DayDetailPage() {
           </div>
         </div>
 
-        {/* Activity Timeline */}
-        {timelineActivities.length > 0 && (
-          <div className="bg-card rounded-2xl p-4 border border-border">
-            <p className="text-sm text-muted-foreground mb-3">Активности</p>
-            <div className="space-y-1.5">
-              {timelineActivities.map((entry) => {
-                const act = ACTIVITIES.find((a) => a.id === entry.activityId);
-                if (!act || !entry.endTime) return null;
-                const [sh, sm] = entry.startTime.split(':').map(Number);
-                const [eh, em] = entry.endTime.split(':').map(Number);
-                const diffMin = (eh * 60 + em) - (sh * 60 + sm);
-                const hours = Math.floor(diffMin / 60);
-                const mins = diffMin % 60;
-                const durationStr = hours > 0 ? (mins > 0 ? `${hours}ч ${mins}м` : `${hours}ч`) : `${mins}м`;
-                return (
-                  <div
-                    key={entry.id}
-                    className="rounded-xl p-3 flex items-center gap-3"
-                    style={{ backgroundColor: `${act.color}12` }}
-                  >
-                    <span className="text-xl">{act.emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm" style={{ color: act.color }}>{act.label}</p>
-                      <p className="text-xs text-muted-foreground">{entry.startTime} – {entry.endTime}</p>
-                    </div>
-                    <span className="text-sm tabular-nums" style={{ color: act.color }}>{durationStr}</span>
-                  </div>
-                );
-              })}
+        {/* Day Feed — unified chronological view */}
+        {(timelineActivities.length > 0 || (day.moodSnapshots && day.moodSnapshots.length > 0)) && (
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
+            <div className="px-4 pt-4 pb-2">
+              <span className="text-sm text-muted-foreground">Хроника дня</span>
             </div>
-            {/* Summary donut-like stats */}
+
+            {/* Activity time bar */}
             {(() => {
-              const actMinutes: Record<string, number> = {};
-              let totalMin = 0;
+              const actMin: Record<string, number> = {};
+              let total = 0;
               timelineActivities.forEach((e) => {
                 if (!e.endTime) return;
                 const [sh, sm] = e.startTime.split(':').map(Number);
                 const [eh, em] = e.endTime.split(':').map(Number);
-                const mins = (eh * 60 + em) - (sh * 60 + sm);
-                actMinutes[e.activityId] = (actMinutes[e.activityId] || 0) + mins;
-                totalMin += mins;
+                const m = (eh * 60 + em) - (sh * 60 + sm);
+                actMin[e.activityId] = (actMin[e.activityId] || 0) + m;
+                total += m;
               });
-              const sorted = Object.entries(actMinutes).sort((a, b) => b[1] - a[1]);
-              if (sorted.length === 0) return null;
+              if (total === 0) return null;
+              const sorted = Object.entries(actMin).sort((a, b) => b[1] - a[1]);
               return (
-                <div className="mt-3 pt-3 border-t border-border/50 space-y-1">
-                  {sorted.map(([id, mins]) => {
-                    const act = ACTIVITIES.find((a) => a.id === id);
-                    if (!act) return null;
-                    const pct = Math.round((mins / totalMin) * 100);
-                    return (
-                      <div key={id} className="flex items-center gap-2">
-                        <span className="text-sm w-6 text-center">{act.emoji}</span>
-                        <span className="text-xs w-16 text-muted-foreground">{act.label}</span>
-                        <div className="flex-1 h-1.5 bg-accent rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: act.color }} />
+                <div className="px-4 pb-3">
+                  <div className="flex h-2 rounded-full overflow-hidden gap-px">
+                    {sorted.map(([id, m]) => {
+                      const act = ACTIVITIES.find((a) => a.id === id);
+                      return act ? (
+                        <div key={id} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${Math.max((m / total) * 100, 2)}%`, backgroundColor: act.color }} />
+                      ) : null;
+                    })}
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                    {sorted.map(([id, m]) => {
+                      const act = ACTIVITIES.find((a) => a.id === id);
+                      if (!act) return null;
+                      const h = Math.floor(m / 60), min = m % 60;
+                      return (
+                        <div key={id} className="flex items-center gap-1">
+                          <span className="text-xs">{act.emoji}</span>
+                          <span className="text-[11px] text-muted-foreground">{h > 0 ? `${h}ч${min > 0 ? ` ${min}м` : ''}` : `${min}м`}</span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground w-8 text-right">{pct}%</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })()}
-          </div>
-        )}
 
-        {/* Mood snapshots */}
-        {day.moodSnapshots && day.moodSnapshots.length > 0 && (
-          <div className="bg-card rounded-2xl p-4 border border-border">
-            <p className="text-sm text-muted-foreground mb-2">Настроение в течение дня</p>
-            <div className="flex gap-2">
-              {day.moodSnapshots.map((snap, i) => (
-                <div key={i} className="flex flex-col items-center gap-1">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs"
-                    style={{ backgroundColor: MOOD_COLORS[snap.mood] }}
-                  >
-                    {snap.mood}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">{snap.time}</span>
-                </div>
-              ))}
+            {/* Feed items with time anchors */}
+            <div className="px-2 pb-3">
+              {(() => {
+                const items: Array<
+                  | { kind: 'activity'; entry: typeof timelineActivities[0]; time: string }
+                  | { kind: 'mood'; snap: typeof day.moodSnapshots[0]; time: string }
+                > = [
+                  ...timelineActivities.map((e) => ({ kind: 'activity' as const, entry: e, time: e.startTime })),
+                  ...(day.moodSnapshots || []).map((s) => ({ kind: 'mood' as const, snap: s, time: s.time })),
+                ].sort((a, b) => b.time.localeCompare(a.time));
+
+                const getPeriod = (t: string) => {
+                  const h = parseInt(t.split(':')[0]);
+                  if (h >= 6 && h < 12) return 'утро';
+                  if (h >= 12 && h < 18) return 'день';
+                  if (h >= 18 && h < 23) return 'вечер';
+                  return 'ночь';
+                };
+
+                const result: JSX.Element[] = [];
+                let lastPeriod: string | null = null;
+
+                items.forEach((item, idx) => {
+                  const period = getPeriod(item.time);
+                  if (period !== lastPeriod) {
+                    result.push(
+                      <div key={`anchor-${period}-${idx}`} className="flex items-center gap-2 my-2 px-2">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-[10px] text-muted-foreground">{period}</span>
+                        <div className="h-px flex-1 bg-border" />
+                      </div>
+                    );
+                    lastPeriod = period;
+                  }
+
+                  if (item.kind === 'activity') {
+                    const { entry } = item;
+                    const act = ACTIVITIES.find((a) => a.id === entry.activityId);
+                    if (!act || !entry.endTime) return;
+                    const [sh, sm] = entry.startTime.split(':').map(Number);
+                    const [eh, em] = entry.endTime.split(':').map(Number);
+                    const diffMin = (eh * 60 + em) - (sh * 60 + sm);
+                    const h = Math.floor(diffMin / 60), m = diffMin % 60;
+                    const dur = h > 0 ? (m > 0 ? `${h}ч ${m}м` : `${h}ч`) : `${m}м`;
+                    result.push(
+                      <div key={entry.id} className="flex items-center gap-3 py-2 px-2 rounded-xl" style={{ backgroundColor: `${act.color}08` }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${act.color}15` }}>
+                          <span className="text-base">{act.emoji}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm leading-tight" style={{ color: act.color }}>{act.label}</p>
+                          <p className="text-[11px] text-muted-foreground">{entry.startTime}–{entry.endTime}</p>
+                          {entry.comment && <p className="text-[11px] text-muted-foreground truncate">{entry.comment}</p>}
+                        </div>
+                        <span className="text-xs text-muted-foreground tabular-nums shrink-0">{dur}</span>
+                      </div>
+                    );
+                  } else {
+                    const { snap } = item;
+                    result.push(
+                      <div key={snap.time + idx} className="flex items-center gap-3 py-2 px-2">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shrink-0 relative" style={{ backgroundColor: MOOD_COLORS[snap.mood] }}>
+                          {snap.mood}
+                          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card" style={{ backgroundColor: '#eab308', opacity: 0.5 + snap.energy / 20 }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm">😊 {snap.mood}/10</span>
+                            <span className="text-xs text-muted-foreground">· ⚡ {snap.energy}</span>
+                          </div>
+                          {snap.comment && <p className="text-[11px] text-muted-foreground truncate">{snap.comment}</p>}
+                        </div>
+                        <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{snap.time}</span>
+                      </div>
+                    );
+                  }
+                });
+                return result;
+              })()}
             </div>
           </div>
         )}

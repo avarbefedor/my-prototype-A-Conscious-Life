@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Drawer } from 'vaul';
-import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, ChevronRight, Settings, Check, Pencil, Moon as MoonIcon } from 'lucide-react';
+import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, Settings, Check, Pencil, Moon as MoonIcon } from 'lucide-react';
 import { useDays, getStreak, useActivities, useEvents, useEventGroups, useLenses } from '../data/store';
 import { MOOD_LABELS } from '../data/types';
 import type { ActivityType, EventType, MoodSnapshot } from '../data/types';
@@ -15,6 +15,20 @@ const MOOD_COLORS: Record<number, string> = {
   4: '#eab308', 5: '#eab308', 6: '#84cc16',
   7: '#22c55e', 8: '#22c55e', 9: '#10b981', 10: '#059669',
 };
+
+type FeedItemType =
+  | { kind: 'activity'; entry: { id: string; activityId: string; startTime: string; endTime?: string; comment?: string }; act: ActivityType; time: string }
+  | { kind: 'mood'; snap: MoodSnapshot; time: string };
+
+const PERIOD_LABELS = { morning: 'утро', day: 'день', evening: 'вечер', night: 'ночь' } as const;
+
+function getTimePeriod(time: string): keyof typeof PERIOD_LABELS {
+  const h = parseInt(time.split(':')[0]);
+  if (h >= 6 && h < 12) return 'morning';
+  if (h >= 12 && h < 18) return 'day';
+  if (h >= 18 && h < 23) return 'evening';
+  return 'night';
+}
 
 function formatDuration(startTime: string, endTime?: string): string {
   const [sh, sm] = startTime.split(':').map(Number);
@@ -258,6 +272,21 @@ export function NowPage() {
   }, [today.activities, activities, tick]);
 
   const totalMinutes = useMemo(() => timelineStats.reduce((sum, s) => sum + s.mins, 0), [timelineStats]);
+
+  const feedItems = useMemo((): FeedItemType[] => {
+    const items: FeedItemType[] = [];
+    today.activities.filter((e) => e.endTime).forEach((entry) => {
+      const act = activities.find((a) => a.id === entry.activityId);
+      if (act) items.push({ kind: 'activity', entry, act, time: entry.startTime });
+    });
+    today.moodSnapshots.forEach((snap) => {
+      items.push({ kind: 'mood', snap, time: snap.time });
+    });
+    return items.sort((a, b) => b.time.localeCompare(a.time));
+  }, [today.activities, today.moodSnapshots, activities]);
+
+  const isEvening = new Date().getHours() >= 18;
+  const isComplete = today.status === 'complete';
 
   const handleTimeAdjust = useCallback((entryId: string, field: 'startTime' | 'endTime', minutes: number) => {
     const entry = today.activities.find((a) => a.id === entryId);
@@ -690,50 +719,80 @@ export function NowPage() {
           </div>
         </div>
 
-        {/* ═══ Timeline Bar + Legend ═══ */}
-        {today.activities.length > 0 && (
-          <div className="bg-card rounded-2xl p-4 border border-border space-y-2.5">
-            <button onClick={() => setShowTimeline(!showTimeline)} className="w-full flex items-center justify-between cursor-pointer">
-              <span className="text-sm text-muted-foreground">Таймлайн дня</span>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="text-[10px]">{totalMinutes > 0 ? (totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}ч ${totalMinutes % 60}м` : `${totalMinutes}м`) : ''}</span>
-                <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showTimeline ? 'rotate-90' : ''}`} />
-              </div>
-            </button>
+        {/* ═══ Day Feed ═══ */}
+        {(feedItems.length > 0 || (isEvening && !isComplete)) && (
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
+            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">История дня</span>
+              {totalMinutes > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}ч${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}м` : ''}` : `${totalMinutes}м`}
+                </span>
+              )}
+            </div>
+
             {totalMinutes > 0 && (
-              <div className="flex h-3 rounded-full overflow-hidden gap-px">
-                {timelineStats.map((s) => (
-                  <div key={s.id} className="h-full rounded-sm first:rounded-l-full last:rounded-r-full" style={{ width: `${Math.max((s.mins / totalMinutes) * 100, 2)}%`, backgroundColor: s.act!.color }} title={`${s.act!.label}: ${s.mins}м`} />
-                ))}
+              <div className="px-4 pb-3">
+                <div className="flex h-2 rounded-full overflow-hidden gap-px">
+                  {timelineStats.map((s) => (
+                    <div
+                      key={s.id}
+                      className="h-full first:rounded-l-full last:rounded-r-full"
+                      style={{ width: `${Math.max((s.mins / totalMinutes) * 100, 2)}%`, backgroundColor: s.act!.color }}
+                    />
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                  {timelineStats.map((s) => (
+                    <div key={s.id} className="flex items-center gap-1">
+                      <span className="text-xs">{s.act!.emoji}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {s.mins >= 60 ? `${Math.floor(s.mins / 60)}ч${s.mins % 60 > 0 ? ` ${s.mins % 60}м` : ''}` : `${s.mins}м`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {timelineStats.map((s) => (
-                <div key={s.id} className="flex items-center gap-1">
-                  <span className="text-xs">{s.act!.emoji}</span>
-                  <span className="text-[11px] text-muted-foreground">{s.mins >= 60 ? `${Math.floor(s.mins / 60)}ч${s.mins % 60 > 0 ? ` ${s.mins % 60}м` : ''}` : `${s.mins}м`}</span>
-                </div>
-              ))}
-            </div>
-            <AnimatePresence>
-              {showTimeline && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                  <div className="space-y-0.5 pt-1">
-                    {timelineEntries.map((entry) => {
-                      const act = activities.find((a) => a.id === entry.activityId);
-                      if (!act) return null;
-                      const isRunning = !entry.endTime;
+
+            {feedItems.length > 0 && (
+              <div className="px-2 pb-2">
+                {(() => {
+                  const result: JSX.Element[] = [];
+                  let lastPeriod: string | null = null;
+                  feedItems.forEach((item, idx) => {
+                    const period = getTimePeriod(item.time);
+                    if (period !== lastPeriod) {
+                      result.push(
+                        <div key={`anchor-${period}-${idx}`} className="flex items-center gap-2 my-2 px-2">
+                          <div className="h-px flex-1 bg-border" />
+                          <span className="text-[10px] text-muted-foreground">{PERIOD_LABELS[period]}</span>
+                          <div className="h-px flex-1 bg-border" />
+                        </div>
+                      );
+                      lastPeriod = period;
+                    }
+
+                    if (item.kind === 'activity') {
+                      const { entry, act } = item;
                       const isEditing = editingEntry === entry.id;
                       const duration = formatDuration(entry.startTime, entry.endTime);
-                      return (
+                      result.push(
                         <div key={entry.id}>
-                          <button onClick={() => setEditingEntry(isEditing ? null : entry.id)} className="w-full flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer transition-colors text-left" style={{ backgroundColor: isEditing ? `${act.color}12` : isRunning ? `${act.color}08` : 'transparent' }}>
-                            <span className="text-[11px] text-muted-foreground tabular-nums w-[85px] shrink-0">{entry.startTime}–{entry.endTime || '...'}</span>
-                            <span className="text-sm">{act.emoji}</span>
-                            <span className="text-xs flex-1 truncate" style={{ color: act.color }}>{act.label}</span>
-                            {entry.comment && <MessageCircle className="w-3 h-3 text-muted-foreground/40 shrink-0" />}
-                            {isRunning && <span className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: act.color }} />}
-                            <span className="text-[11px] text-muted-foreground tabular-nums w-10 text-right shrink-0">{duration}</span>
+                          <button
+                            onClick={() => setEditingEntry(isEditing ? null : entry.id)}
+                            className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left transition-colors hover:bg-accent/50"
+                            style={{ backgroundColor: isEditing ? `${act.color}12` : undefined }}
+                          >
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${act.color}15` }}>
+                              <span className="text-base">{act.emoji}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm leading-tight" style={{ color: act.color }}>{act.label}</p>
+                              <p className="text-[11px] text-muted-foreground">{entry.startTime}–{entry.endTime}</p>
+                              {entry.comment && <p className="text-[11px] text-muted-foreground truncate">{entry.comment}</p>}
+                            </div>
+                            <span className="text-xs text-muted-foreground tabular-nums shrink-0">{duration}</span>
                           </button>
                           <AnimatePresence>
                             {isEditing && (
@@ -775,144 +834,110 @@ export function NowPage() {
                           </AnimatePresence>
                         </div>
                       );
-                    })}
+                    } else {
+                      const { snap } = item;
+                      const isSelected = editingSnapshotId === snap.id;
+                      result.push(
+                        <div key={snap.id}>
+                          <button
+                            onClick={() => isSelected ? setEditingSnapshotId(null) : handleEditSnapshot(snap.id)}
+                            className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left hover:bg-accent/50"
+                            style={{ backgroundColor: isSelected ? `${MOOD_COLORS[snap.mood]}10` : undefined }}
+                          >
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shrink-0 relative" style={{ backgroundColor: MOOD_COLORS[snap.mood] }}>
+                              {snap.mood}
+                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card" style={{ backgroundColor: '#eab308', opacity: 0.5 + snap.energy / 20 }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm">😊 {snap.mood}/10</span>
+                                <span className="text-xs text-muted-foreground">· ⚡ {snap.energy}</span>
+                                {snap.trigger && <span className="text-[10px] text-muted-foreground">· {snap.trigger}</span>}
+                              </div>
+                              {snap.comment && <p className="text-[11px] text-muted-foreground truncate">{snap.comment}</p>}
+                            </div>
+                            <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{snap.time}</span>
+                          </button>
+                          <AnimatePresence>
+                            {isSelected && (() => (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-2 pt-2 px-2 border-t border-border space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">{snap.time}</span>
+                                    <div className="flex gap-1">
+                                      <button onClick={() => handleDeleteSnapshot(snap.id)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"><Trash2 className="w-3 h-3" /></button>
+                                      <button onClick={() => setEditingSnapshotId(null)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"><X className="w-3 h-3" /></button>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <span className="text-[11px] text-muted-foreground">Настроение</span>
+                                      <span className="text-xs" style={{ color: MOOD_COLORS[editSnapMood] }}>{editSnapMood} — {MOOD_LABELS[editSnapMood]}</span>
+                                    </div>
+                                    <div className="flex gap-0.5">
+                                      {Array.from({ length: 11 }, (_, i) => (
+                                        <button key={i} onClick={() => setEditSnapMood(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= editSnapMood ? 1 : 0.3 }} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <span className="text-[11px] text-muted-foreground">Энергия</span>
+                                      <span className="text-xs" style={{ color: '#eab308' }}>{editSnapEnergy}/10</span>
+                                    </div>
+                                    <div className="flex gap-0.5">
+                                      {Array.from({ length: 11 }, (_, i) => (
+                                        <button key={i} onClick={() => setEditSnapEnergy(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapEnergy ? '#eab308' : '#e5e7eb', opacity: i <= editSnapEnergy ? 1 : 0.3 }} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={editSnapComment}
+                                    onChange={(e) => setEditSnapComment(e.target.value)}
+                                    placeholder="Что повлияло? (необязательно)"
+                                    className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditSnapshot(); }}
+                                  />
+                                  <button onClick={handleSaveEditSnapshot} className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs cursor-pointer hover:opacity-90 transition-opacity">Сохранить</button>
+                                </div>
+                              </motion.div>
+                            ))()}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    }
+                  });
+                  return result;
+                })()}
+              </div>
+            )}
+
+            {isEvening && !isComplete && (
+              <div className="mx-4 mb-4 mt-1">
+                <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <MoonIcon className="w-4 h-4 text-indigo-400" />
+                    <span className="text-sm text-indigo-700">Как прошёл день?</span>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-
-        {/* ═══ Mood Snapshots ═══ */}
-        {today.moodSnapshots.length > 0 && (
-          <div className="bg-card rounded-2xl p-4 border border-border">
-            <p className="text-sm text-muted-foreground mb-2">Состояние за день</p>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {today.moodSnapshots.map((snap) => {
-                const isSelected = editingSnapshotId === snap.id;
-                return (
+                  <p className="text-xs text-indigo-300 mb-3">Подведи итог — это займёт минуту</p>
                   <button
-                    key={snap.id}
-                    onClick={() => isSelected ? setEditingSnapshotId(null) : handleEditSnapshot(snap.id)}
-                    className="flex flex-col items-center gap-1 shrink-0 cursor-pointer transition-transform"
-                    style={{ transform: isSelected ? 'scale(1.1)' : 'scale(1)' }}
+                    onClick={() => navigate('/evening')}
+                    className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-sm cursor-pointer hover:bg-indigo-600 transition-colors"
                   >
-                    <div className="relative">
-                      <div
-                        className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-xs transition-all"
-                        style={{
-                          backgroundColor: MOOD_COLORS[snap.mood],
-                          boxShadow: isSelected ? `0 0 0 2px white, 0 0 0 4px ${MOOD_COLORS[snap.mood]}` : 'none',
-                        }}
-                      >
-                        {snap.mood}
-                      </div>
-                      {/* Energy dot */}
-                      <div
-                        className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full border-2 border-card"
-                        style={{ backgroundColor: '#eab308', opacity: snap.energy / 10 }}
-                      />
-                      {/* Comment indicator */}
-                      {snap.comment && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-blue-400 flex items-center justify-center">
-                          <MessageCircle className="w-1.5 h-1.5 text-white" />
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">{snap.time}</span>
+                    Завершить день →
                   </button>
-                );
-              })}
-            </div>
-
-            {/* Inline editor */}
-            <AnimatePresence>
-              {editingSnapshotId && (() => {
-                const snap = today.moodSnapshots.find((s) => s.id === editingSnapshotId);
-                if (!snap) return null;
-                return (
-                  <motion.div
-                    key={editingSnapshotId}
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="mt-3 pt-3 border-t border-border space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">{snap.time}</span>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleDeleteSnapshot(editingSnapshotId)}
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => setEditingSnapshotId(null)}
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Mood editor */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] text-muted-foreground">Настроение</span>
-                          <span className="text-xs" style={{ color: MOOD_COLORS[editSnapMood] }}>{editSnapMood} — {MOOD_LABELS[editSnapMood]}</span>
-                        </div>
-                        <div className="flex gap-0.5">
-                          {Array.from({ length: 11 }, (_, i) => (
-                            <button key={i} onClick={() => setEditSnapMood(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= editSnapMood ? 1 : 0.3 }} />
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Energy editor */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] text-muted-foreground">Энергия</span>
-                          <span className="text-xs" style={{ color: '#eab308' }}>{editSnapEnergy}/10</span>
-                        </div>
-                        <div className="flex gap-0.5">
-                          {Array.from({ length: 11 }, (_, i) => (
-                            <button key={i} onClick={() => setEditSnapEnergy(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapEnergy ? '#eab308' : '#e5e7eb', opacity: i <= editSnapEnergy ? 1 : 0.3 }} />
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Comment */}
-                      <input
-                        type="text"
-                        value={editSnapComment}
-                        onChange={(e) => setEditSnapComment(e.target.value)}
-                        placeholder="Что повлияло? (необязательно)"
-                        className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditSnapshot(); }}
-                      />
-
-                      <button
-                        onClick={handleSaveEditSnapshot}
-                        className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs cursor-pointer hover:opacity-90 transition-opacity"
-                      >
-                        Сохранить
-                      </button>
-                    </div>
-                  </motion.div>
-                );
-              })()}
-            </AnimatePresence>
+                </div>
+              </div>
+            )}
           </div>
         )}
-
-        {/* ═══ End Day ═══ */}
-        <button onClick={() => navigate('/evening')} className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-card border border-border text-foreground hover:bg-accent transition-colors cursor-pointer">
-          <MoonIcon className="w-5 h-5 text-indigo-500" />
-          <span className="text-sm">Завершить день</span>
-        </button>
       </div>
 
       {/* Description drawer */}
