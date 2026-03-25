@@ -362,66 +362,308 @@ export function NowPage() {
           </div>
         )}
 
-        {/* ═══ Active Chips ═══ */}
-        <AnimatePresence>
-          {activeEntries.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="space-y-1.5 overflow-hidden"
-            >
-              {activeEntries.map(({ entry, actInfo }) => {
-                const isCommenting = commentingEntry === entry.id;
-                const hasComment = !!entry.comment;
-                return (
-                  <motion.div key={entry.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} layout>
-                    <div className="rounded-xl px-3 py-2.5 flex items-center gap-2.5" style={{ backgroundColor: `${actInfo.color}12`, borderLeft: `3px solid ${actInfo.color}` }}>
-                      <span className="text-lg">{actInfo.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm" style={{ color: actInfo.color }}>{actInfo.label}</span>
-                          <span className="text-xs text-muted-foreground">· с {entry.startTime}</span>
-                        </div>
-                        {hasComment && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{entry.comment}</p>}
-                      </div>
-                      <button onClick={() => setCommentingEntry(isCommenting ? null : entry.id)} className="p-1.5 rounded-lg cursor-pointer transition-colors" style={{ color: hasComment ? actInfo.color : '#a1a1aa', backgroundColor: isCommenting ? `${actInfo.color}15` : 'transparent' }}>
-                        <MessageCircle className="w-4 h-4" style={hasComment ? { fill: `${actInfo.color}30` } : undefined} />
-                      </button>
-                      <button onClick={() => toggleActivity(actInfo.id)} className="p-1.5 rounded-lg cursor-pointer hover:bg-black/5 transition-colors">
-                        <X className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </div>
+        {/* ═══ ЛЕНТА ДНЯ ═══ */}
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          {/* Header */}
+          <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+            <span className="text-sm font-medium">Лента дня</span>
+            {totalMinutes > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}ч${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}м` : ''}` : `${totalMinutes}м`} записано
+              </span>
+            )}
+          </div>
 
-                    <AnimatePresence>
-                      {isCommenting && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-                          <div className="flex gap-2 mt-1 px-1">
-                            <input ref={commentRef} defaultValue={entry.comment || ''} placeholder="Заметка..." className="flex-1 text-sm px-3 py-2 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20" onKeyDown={(e) => { if (e.key === 'Enter') handleSaveComment(entry.id, (e.target as HTMLInputElement).value); if (e.key === 'Escape') setCommentingEntry(null); }} onBlur={(e) => handleSaveComment(entry.id, e.target.value)} />
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    <AnimatePresence>
-                      {justStarted === actInfo.id && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-                          <div className="flex items-center gap-1 mt-1 px-1">
-                            <span className="text-[10px] text-muted-foreground shrink-0">Начал раньше?</span>
-                            {[-60, -30, -15, -5].map((m) => (
-                              <button key={m} onClick={() => handleTimeShift(actInfo.id, m)} className="flex-1 py-1 rounded-md text-[10px] cursor-pointer transition-colors" style={{ backgroundColor: `${actInfo.color}10`, color: actInfo.color }}>{m}м</button>
-                            ))}
-                            <button onClick={() => setJustStarted(null)} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground"><X className="w-3 h-3" /></button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
+          {/* Time bar */}
+          {totalMinutes > 0 && (
+            <div className="px-4 pb-3">
+              <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
+                {timelineStats.map((s) => (
+                  <div key={s.id} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${Math.max((s.mins / totalMinutes) * 100, 2)}%`, backgroundColor: s.act!.color }} />
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                {timelineStats.map((s) => (
+                  <div key={s.id} className="flex items-center gap-1">
+                    <span className="text-xs">{s.act!.emoji}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {s.mins >= 60 ? `${Math.floor(s.mins / 60)}ч${s.mins % 60 > 0 ? ` ${s.mins % 60}м` : ''}` : `${s.mins}м`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
-        </AnimatePresence>
+
+          {/* Active entries — live zone */}
+          <AnimatePresence>
+            {activeEntries.length > 0 && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="px-3 pb-2 space-y-1.5 overflow-hidden">
+                {activeEntries.map(({ entry, actInfo }) => {
+                  const isCommenting = commentingEntry === entry.id;
+                  const hasComment = !!entry.comment;
+                  return (
+                    <motion.div key={entry.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} layout>
+                      <div className="rounded-xl px-3 py-2.5 flex items-center gap-2.5" style={{ backgroundColor: `${actInfo.color}12`, borderLeft: `3px solid ${actInfo.color}` }}>
+                        <span className="text-lg">{actInfo.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm" style={{ color: actInfo.color }}>{actInfo.label}</span>
+                            <span className="text-xs text-muted-foreground">· с {entry.startTime}</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                          </div>
+                          {hasComment && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{entry.comment}</p>}
+                        </div>
+                        <button onClick={() => setCommentingEntry(isCommenting ? null : entry.id)} className="p-1.5 rounded-lg cursor-pointer transition-colors" style={{ color: hasComment ? actInfo.color : '#a1a1aa', backgroundColor: isCommenting ? `${actInfo.color}15` : 'transparent' }}>
+                          <MessageCircle className="w-4 h-4" style={hasComment ? { fill: `${actInfo.color}30` } : undefined} />
+                        </button>
+                        <button onClick={() => toggleActivity(actInfo.id)} className="p-1.5 rounded-lg cursor-pointer hover:bg-black/5 transition-colors">
+                          <X className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      </div>
+                      <AnimatePresence>
+                        {isCommenting && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                            <div className="flex gap-2 mt-1 px-1">
+                              <input ref={commentRef} defaultValue={entry.comment || ''} placeholder="Заметка..." className="flex-1 text-sm px-3 py-2 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20" onKeyDown={(e) => { if (e.key === 'Enter') handleSaveComment(entry.id, (e.target as HTMLInputElement).value); if (e.key === 'Escape') setCommentingEntry(null); }} onBlur={(e) => handleSaveComment(entry.id, e.target.value)} />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      <AnimatePresence>
+                        {justStarted === actInfo.id && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                            <div className="flex items-center gap-1 mt-1 px-1">
+                              <span className="text-[10px] text-muted-foreground shrink-0">Начал раньше?</span>
+                              {[-60, -30, -15, -5].map((m) => (
+                                <button key={m} onClick={() => handleTimeShift(actInfo.id, m)} className="flex-1 py-1 rounded-md text-[10px] cursor-pointer transition-colors" style={{ backgroundColor: `${actInfo.color}10`, color: actInfo.color }}>{m}м</button>
+                              ))}
+                              <button onClick={() => setJustStarted(null)} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground"><X className="w-3 h-3" /></button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Empty state */}
+          {feedItems.length === 0 && activeEntries.length === 0 && (
+            <div className="px-4 pb-4 flex flex-col items-center text-center gap-2 py-6">
+              <span className="text-3xl">{isEvening ? '🌙' : new Date().getHours() < 12 ? '🌅' : '☀️'}</span>
+              <p className="text-sm text-muted-foreground">
+                {isEvening
+                  ? 'День почти завершён — подведи итог'
+                  : new Date().getHours() < 12
+                  ? 'Утро только начинается'
+                  : 'Запусти активность или отметь состояние'}
+              </p>
+              <p className="text-xs text-muted-foreground/60">Нажми на кружок активности ниже, чтобы начать</p>
+            </div>
+          )}
+
+          {/* Completed feed items */}
+          {feedItems.length > 0 && (
+            <div className="px-2 pb-2">
+              {(() => {
+                const result: JSX.Element[] = [];
+                let lastPeriod: string | null = null;
+                feedItems.forEach((item, idx) => {
+                  const period = getTimePeriod(item.time);
+                  if (period !== lastPeriod) {
+                    result.push(
+                      <div key={`anchor-${period}-${idx}`} className="flex items-center gap-2 my-2 px-2">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-[10px] text-muted-foreground">{PERIOD_LABELS[period]}</span>
+                        <div className="h-px flex-1 bg-border" />
+                      </div>
+                    );
+                    lastPeriod = period;
+                  }
+
+                  if (item.kind === 'activity') {
+                    const { entry, act } = item;
+                    const isEditing = editingEntry === entry.id;
+                    const duration = formatDuration(entry.startTime, entry.endTime);
+                    result.push(
+                      <div key={entry.id}>
+                        <button
+                          onClick={() => setEditingEntry(isEditing ? null : entry.id)}
+                          className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left transition-colors hover:bg-accent/50"
+                          style={{ backgroundColor: isEditing ? `${act.color}12` : undefined }}
+                        >
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${act.color}15` }}>
+                            <span className="text-base">{act.emoji}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm leading-tight" style={{ color: act.color }}>{act.label}</p>
+                            <p className="text-[11px] text-muted-foreground">{entry.startTime}–{entry.endTime}</p>
+                            {entry.comment && <p className="text-[11px] text-muted-foreground truncate">{entry.comment}</p>}
+                          </div>
+                          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{duration}</span>
+                        </button>
+                        <AnimatePresence>
+                          {isEditing && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                              <div className="py-2 px-2 space-y-2.5">
+                                <input defaultValue={entry.comment || ''} placeholder="Заметка..." className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/40 border-0 outline-none" onBlur={(e) => handleSaveComment(entry.id, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-muted-foreground/50" /><span className="text-[10px] text-muted-foreground">Начало: {entry.startTime}</span></div>
+                                  <div className="flex gap-0.5">
+                                    {[-30, -5, -1].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'startTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">{m}м</button>))}
+                                    {[1, 5, 30].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'startTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">+{m}м</button>))}
+                                  </div>
+                                </div>
+                                {entry.endTime && (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-muted-foreground/50" /><span className="text-[10px] text-muted-foreground">Конец: {entry.endTime}</span></div>
+                                    <div className="flex gap-0.5">
+                                      {[-30, -5, -1].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'endTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">{m}м</button>))}
+                                      <button onClick={() => handleSetNow(entry.id, 'endTime')} className="flex-1 py-1 rounded text-[10px] cursor-pointer" style={{ backgroundColor: `${act.color}15`, color: act.color }}>Сейч</button>
+                                      {[1, 5, 30].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'endTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">+{m}м</button>))}
+                                    </div>
+                                  </div>
+                                )}
+                                <div>
+                                  <span className="text-[10px] text-muted-foreground mb-1 block">Сменить</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {activities.filter((a) => a.id !== entry.activityId).slice(0, 10).map((a) => (
+                                      <button key={a.id} onClick={() => handleChangeEntryActivity(entry.id, a.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: `${a.color}12` }} title={a.label}><span className="text-xs">{a.emoji}</span></button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex gap-1.5">
+                                  <button onClick={() => { deleteActivityEntry(entry.id); setEditingEntry(null); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"><Trash2 className="w-3 h-3" />Удалить</button>
+                                  <button onClick={() => setEditingEntry(null)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"><X className="w-3 h-3" />Закрыть</button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  } else {
+                    const { snap } = item;
+                    const isSelected = editingSnapshotId === snap.id;
+                    result.push(
+                      <div key={snap.id}>
+                        <button
+                          onClick={() => isSelected ? setEditingSnapshotId(null) : handleEditSnapshot(snap.id)}
+                          className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left hover:bg-accent/50"
+                          style={{ backgroundColor: isSelected ? `${MOOD_COLORS[snap.mood]}10` : undefined }}
+                        >
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shrink-0 relative" style={{ backgroundColor: MOOD_COLORS[snap.mood] }}>
+                            {snap.mood}
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card" style={{ backgroundColor: '#eab308', opacity: 0.5 + snap.energy / 20 }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm">😊 {snap.mood}/10</span>
+                              <span className="text-xs text-muted-foreground">· ⚡ {snap.energy}</span>
+                              {snap.trigger && <span className="text-[10px] text-muted-foreground">· {snap.trigger}</span>}
+                            </div>
+                            {snap.comment && <p className="text-[11px] text-muted-foreground truncate">{snap.comment}</p>}
+                          </div>
+                          <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{snap.time}</span>
+                        </button>
+                        <AnimatePresence>
+                          {isSelected && (() => (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="mt-2 pt-2 px-2 border-t border-border space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-muted-foreground">{snap.time}</span>
+                                  <div className="flex gap-1">
+                                    <button onClick={() => handleDeleteSnapshot(snap.id)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"><Trash2 className="w-3 h-3" /></button>
+                                    <button onClick={() => setEditingSnapshotId(null)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"><X className="w-3 h-3" /></button>
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[11px] text-muted-foreground">Настроение</span>
+                                    <span className="text-xs" style={{ color: MOOD_COLORS[editSnapMood] }}>{editSnapMood} — {MOOD_LABELS[editSnapMood]}</span>
+                                  </div>
+                                  <div className="flex gap-0.5">
+                                    {Array.from({ length: 11 }, (_, i) => (
+                                      <button key={i} onClick={() => setEditSnapMood(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= editSnapMood ? 1 : 0.3 }} />
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[11px] text-muted-foreground">Энергия</span>
+                                    <span className="text-xs" style={{ color: '#eab308' }}>{editSnapEnergy}/10</span>
+                                  </div>
+                                  <div className="flex gap-0.5">
+                                    {Array.from({ length: 11 }, (_, i) => (
+                                      <button key={i} onClick={() => setEditSnapEnergy(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapEnergy ? '#eab308' : '#e5e7eb', opacity: i <= editSnapEnergy ? 1 : 0.3 }} />
+                                    ))}
+                                  </div>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={editSnapComment}
+                                  onChange={(e) => setEditSnapComment(e.target.value)}
+                                  placeholder="Что повлияло? (необязательно)"
+                                  className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditSnapshot(); }}
+                                />
+                                <button onClick={handleSaveEditSnapshot} className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs cursor-pointer hover:opacity-90 transition-opacity">Сохранить</button>
+                              </div>
+                            </motion.div>
+                          ))()}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  }
+                });
+                return result;
+              })()}
+            </div>
+          )}
+
+          {/* Events summary in feed */}
+          {today.events.length > 0 && (
+            <div className="mx-4 mb-3 px-3 py-2.5 rounded-xl bg-accent/40 flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-muted-foreground shrink-0">События:</span>
+              {today.events.map((e) => {
+                const tag = events.find((t) => t.id === e.eventId);
+                return tag ? (
+                  <span key={e.eventId} className="text-sm" title={tag.label}>
+                    {tag.emoji}{e.multiplier > 1 ? <sup className="text-[9px] text-muted-foreground">×{e.multiplier}</sup> : null}
+                  </span>
+                ) : null;
+              })}
+            </div>
+          )}
+
+          {/* Evening card */}
+          {isEvening && !isComplete && (
+            <div className="mx-4 mb-4 mt-1">
+              <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <MoonIcon className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm text-indigo-700">Как прошёл день?</span>
+                </div>
+                <p className="text-xs text-indigo-400 mb-3">Рефлексия сохранится в дневнике — открой любой день в Ленте</p>
+                <button
+                  onClick={() => navigate('/evening')}
+                  className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-sm cursor-pointer hover:bg-indigo-600 transition-colors"
+                >
+                  Написать о дне →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* ═══ Activity Grid ═══ */}
         <div className="bg-card rounded-2xl p-4 border border-border">
@@ -719,225 +961,6 @@ export function NowPage() {
           </div>
         </div>
 
-        {/* ═══ Day Feed ═══ */}
-        {(feedItems.length > 0 || (isEvening && !isComplete)) && (
-          <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">История дня</span>
-              {totalMinutes > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}ч${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}м` : ''}` : `${totalMinutes}м`}
-                </span>
-              )}
-            </div>
-
-            {totalMinutes > 0 && (
-              <div className="px-4 pb-3">
-                <div className="flex h-2 rounded-full overflow-hidden gap-px">
-                  {timelineStats.map((s) => (
-                    <div
-                      key={s.id}
-                      className="h-full first:rounded-l-full last:rounded-r-full"
-                      style={{ width: `${Math.max((s.mins / totalMinutes) * 100, 2)}%`, backgroundColor: s.act!.color }}
-                    />
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                  {timelineStats.map((s) => (
-                    <div key={s.id} className="flex items-center gap-1">
-                      <span className="text-xs">{s.act!.emoji}</span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {s.mins >= 60 ? `${Math.floor(s.mins / 60)}ч${s.mins % 60 > 0 ? ` ${s.mins % 60}м` : ''}` : `${s.mins}м`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {feedItems.length > 0 && (
-              <div className="px-2 pb-2">
-                {(() => {
-                  const result: JSX.Element[] = [];
-                  let lastPeriod: string | null = null;
-                  feedItems.forEach((item, idx) => {
-                    const period = getTimePeriod(item.time);
-                    if (period !== lastPeriod) {
-                      result.push(
-                        <div key={`anchor-${period}-${idx}`} className="flex items-center gap-2 my-2 px-2">
-                          <div className="h-px flex-1 bg-border" />
-                          <span className="text-[10px] text-muted-foreground">{PERIOD_LABELS[period]}</span>
-                          <div className="h-px flex-1 bg-border" />
-                        </div>
-                      );
-                      lastPeriod = period;
-                    }
-
-                    if (item.kind === 'activity') {
-                      const { entry, act } = item;
-                      const isEditing = editingEntry === entry.id;
-                      const duration = formatDuration(entry.startTime, entry.endTime);
-                      result.push(
-                        <div key={entry.id}>
-                          <button
-                            onClick={() => setEditingEntry(isEditing ? null : entry.id)}
-                            className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left transition-colors hover:bg-accent/50"
-                            style={{ backgroundColor: isEditing ? `${act.color}12` : undefined }}
-                          >
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${act.color}15` }}>
-                              <span className="text-base">{act.emoji}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm leading-tight" style={{ color: act.color }}>{act.label}</p>
-                              <p className="text-[11px] text-muted-foreground">{entry.startTime}–{entry.endTime}</p>
-                              {entry.comment && <p className="text-[11px] text-muted-foreground truncate">{entry.comment}</p>}
-                            </div>
-                            <span className="text-xs text-muted-foreground tabular-nums shrink-0">{duration}</span>
-                          </button>
-                          <AnimatePresence>
-                            {isEditing && (
-                              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-                                <div className="py-2 px-2 space-y-2.5">
-                                  <input defaultValue={entry.comment || ''} placeholder="Заметка..." className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/40 border-0 outline-none" onBlur={(e) => handleSaveComment(entry.id, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
-                                  <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-muted-foreground/50" /><span className="text-[10px] text-muted-foreground">Начало: {entry.startTime}</span></div>
-                                    <div className="flex gap-0.5">
-                                      {[-30, -5, -1].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'startTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">{m}м</button>))}
-                                      {[1, 5, 30].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'startTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">+{m}м</button>))}
-                                    </div>
-                                  </div>
-                                  {entry.endTime && (
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-muted-foreground/50" /><span className="text-[10px] text-muted-foreground">Конец: {entry.endTime}</span></div>
-                                      <div className="flex gap-0.5">
-                                        {[-30, -5, -1].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'endTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">{m}м</button>))}
-                                        <button onClick={() => handleSetNow(entry.id, 'endTime')} className="flex-1 py-1 rounded text-[10px] cursor-pointer" style={{ backgroundColor: `${act.color}15`, color: act.color }}>Сейч</button>
-                                        {[1, 5, 30].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'endTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">+{m}м</button>))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <span className="text-[10px] text-muted-foreground mb-1 block">Сменить</span>
-                                    <div className="flex flex-wrap gap-1">
-                                      {activities.filter((a) => a.id !== entry.activityId).slice(0, 10).map((a) => (
-                                        <button key={a.id} onClick={() => handleChangeEntryActivity(entry.id, a.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: `${a.color}12` }} title={a.label}><span className="text-xs">{a.emoji}</span></button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-1.5">
-                                    <button onClick={() => { deleteActivityEntry(entry.id); setEditingEntry(null); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"><Trash2 className="w-3 h-3" />Удалить</button>
-                                    <button onClick={() => setEditingEntry(null)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"><X className="w-3 h-3" />Закрыть</button>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    } else {
-                      const { snap } = item;
-                      const isSelected = editingSnapshotId === snap.id;
-                      result.push(
-                        <div key={snap.id}>
-                          <button
-                            onClick={() => isSelected ? setEditingSnapshotId(null) : handleEditSnapshot(snap.id)}
-                            className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left hover:bg-accent/50"
-                            style={{ backgroundColor: isSelected ? `${MOOD_COLORS[snap.mood]}10` : undefined }}
-                          >
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shrink-0 relative" style={{ backgroundColor: MOOD_COLORS[snap.mood] }}>
-                              {snap.mood}
-                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card" style={{ backgroundColor: '#eab308', opacity: 0.5 + snap.energy / 20 }} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm">😊 {snap.mood}/10</span>
-                                <span className="text-xs text-muted-foreground">· ⚡ {snap.energy}</span>
-                                {snap.trigger && <span className="text-[10px] text-muted-foreground">· {snap.trigger}</span>}
-                              </div>
-                              {snap.comment && <p className="text-[11px] text-muted-foreground truncate">{snap.comment}</p>}
-                            </div>
-                            <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{snap.time}</span>
-                          </button>
-                          <AnimatePresence>
-                            {isSelected && (() => (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="mt-2 pt-2 px-2 border-t border-border space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-muted-foreground">{snap.time}</span>
-                                    <div className="flex gap-1">
-                                      <button onClick={() => handleDeleteSnapshot(snap.id)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"><Trash2 className="w-3 h-3" /></button>
-                                      <button onClick={() => setEditingSnapshotId(null)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"><X className="w-3 h-3" /></button>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                      <span className="text-[11px] text-muted-foreground">Настроение</span>
-                                      <span className="text-xs" style={{ color: MOOD_COLORS[editSnapMood] }}>{editSnapMood} — {MOOD_LABELS[editSnapMood]}</span>
-                                    </div>
-                                    <div className="flex gap-0.5">
-                                      {Array.from({ length: 11 }, (_, i) => (
-                                        <button key={i} onClick={() => setEditSnapMood(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= editSnapMood ? 1 : 0.3 }} />
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                      <span className="text-[11px] text-muted-foreground">Энергия</span>
-                                      <span className="text-xs" style={{ color: '#eab308' }}>{editSnapEnergy}/10</span>
-                                    </div>
-                                    <div className="flex gap-0.5">
-                                      {Array.from({ length: 11 }, (_, i) => (
-                                        <button key={i} onClick={() => setEditSnapEnergy(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapEnergy ? '#eab308' : '#e5e7eb', opacity: i <= editSnapEnergy ? 1 : 0.3 }} />
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <input
-                                    type="text"
-                                    value={editSnapComment}
-                                    onChange={(e) => setEditSnapComment(e.target.value)}
-                                    placeholder="Что повлияло? (необязательно)"
-                                    className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
-                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditSnapshot(); }}
-                                  />
-                                  <button onClick={handleSaveEditSnapshot} className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs cursor-pointer hover:opacity-90 transition-opacity">Сохранить</button>
-                                </div>
-                              </motion.div>
-                            ))()}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    }
-                  });
-                  return result;
-                })()}
-              </div>
-            )}
-
-            {isEvening && !isComplete && (
-              <div className="mx-4 mb-4 mt-1">
-                <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MoonIcon className="w-4 h-4 text-indigo-400" />
-                    <span className="text-sm text-indigo-700">Как прошёл день?</span>
-                  </div>
-                  <p className="text-xs text-indigo-300 mb-3">Подведи итог — это займёт минуту</p>
-                  <button
-                    onClick={() => navigate('/evening')}
-                    className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-sm cursor-pointer hover:bg-indigo-600 transition-colors"
-                  >
-                    Завершить день →
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Description drawer */}
