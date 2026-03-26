@@ -100,6 +100,7 @@ export function NowPage() {
 
   // Edit mode for activity grid
   const [gridEditMode, setGridEditMode] = useState(false);
+  const [gridExpanded, setGridExpanded] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetActivity, setSheetActivity] = useState<ActivityType | null>(null);
   const [editingSnapshotId, setEditingSnapshotId] = useState<string | null>(null);
@@ -285,7 +286,8 @@ export function NowPage() {
     return items.sort((a, b) => b.time.localeCompare(a.time));
   }, [today.activities, today.moodSnapshots, activities]);
 
-  const isEvening = new Date().getHours() >= 18;
+  const hour = new Date().getHours();
+  const isEvening = hour >= 18;
   const isComplete = today.status === 'complete';
 
   const handleTimeAdjust = useCallback((entryId: string, field: 'startTime' | 'endTime', minutes: number) => {
@@ -493,7 +495,7 @@ export function NowPage() {
                         <button
                           onClick={() => setEditingEntry(isEditing ? null : entry.id)}
                           className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left transition-colors hover:bg-accent/50"
-                          style={{ backgroundColor: isEditing ? `${act.color}12` : undefined }}
+                          style={{ backgroundColor: isEditing ? `${act.color}12` : `${act.color}06`, borderLeft: `3px solid ${act.color}` }}
                         >
                           <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${act.color}15` }}>
                             <span className="text-base">{act.emoji}</span>
@@ -645,47 +647,68 @@ export function NowPage() {
             </div>
           )}
 
-          {/* Evening card */}
-          {isEvening && !isComplete && (
+          {/* Reflection card — always visible until day is complete */}
+          {!isComplete && (
             <div className="mx-4 mb-4 mt-1">
               <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <MoonIcon className="w-4 h-4 text-indigo-400" />
-                  <span className="text-sm text-indigo-700">Как прошёл день?</span>
+                  <span className="text-sm text-indigo-700">
+                    {hour < 12 ? 'Как хочешь прожить этот день?' : hour < 18 ? 'Добавь заметку о дне' : 'Как прошёл день?'}
+                  </span>
                 </div>
                 <p className="text-xs text-indigo-400 mb-3">Рефлексия сохранится в дневнике — открой любой день в Ленте</p>
                 <button
                   onClick={() => navigate('/evening')}
                   className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-sm cursor-pointer hover:bg-indigo-600 transition-colors"
                 >
-                  Написать о дне →
+                  {hour < 18 ? 'Написать →' : 'Написать о дне →'}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* ═══ Activity Grid ═══ */}
-        <div className="bg-card rounded-2xl p-4 border border-border">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-muted-foreground">
-              {gridEditMode ? 'Перетаскивайте или нажмите' : activeActivities.length > 0 ? 'Добавить ещё или убрать' : 'Чем ты сейчас занят?'}
-            </p>
-            <button onClick={() => setGridEditMode(!gridEditMode)} className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent">
+        {/* ═══ Activity Grid (аккордеон) ═══ */}
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button
+              onClick={() => setGridExpanded(!gridExpanded)}
+              className="flex items-center gap-2 flex-1 cursor-pointer text-left"
+            >
+              <p className="text-sm text-muted-foreground">
+                {activeActivities.length > 0 ? 'Добавить ещё активность' : 'Начать активность'}
+              </p>
+              {gridExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setGridEditMode(!gridEditMode); if (!gridExpanded) setGridExpanded(true); }}
+              className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent ml-1"
+            >
               {gridEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
             </button>
           </div>
-
-          <DraggableActivityGrid
-            activities={activities}
-            activeActivities={activeActivities}
-            editMode={gridEditMode}
-            onToggle={handleToggle}
-            onReorder={reorderActivities}
-            onDelete={deleteActivityType}
-            onEdit={(act) => { setSheetActivity(act); setSheetOpen(true); }}
-            onAdd={() => { setSheetActivity(null); setSheetOpen(true); }}
-          />
+          <AnimatePresence>
+            {gridExpanded && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                <div className="px-4 pb-4">
+                  {gridEditMode && (
+                    <p className="text-xs text-muted-foreground mb-2">Перетаскивайте или нажмите для редактирования</p>
+                  )}
+                  <DraggableActivityGrid
+                    activities={activities}
+                    activeActivities={activeActivities}
+                    editMode={gridEditMode}
+                    onToggle={handleToggle}
+                    onReorder={reorderActivities}
+                    onDelete={deleteActivityType}
+                    onEdit={(act) => { setSheetActivity(act); setSheetOpen(true); }}
+                    onAdd={() => { setSheetActivity(null); setSheetOpen(true); }}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* ═══ Activity Bottom Sheet ═══ */}
