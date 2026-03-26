@@ -2,13 +2,14 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Drawer } from 'vaul';
-import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, Settings, Check, Pencil, Moon as MoonIcon } from 'lucide-react';
+import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, Settings, Check, Pencil, Moon as MoonIcon, Menu } from 'lucide-react';
 import { useDays, getStreak, useActivities, useEvents, useEventGroups, useLenses } from '../data/store';
 import { MOOD_LABELS } from '../data/types';
 import type { ActivityType, EventType, MoodSnapshot } from '../data/types';
 import { DraggableActivityGrid } from '../components/DraggableActivityGrid';
 import { ActivityBottomSheet } from '../components/ActivityBottomSheet';
 import { EmojiPickerSheet } from '../components/EmojiPickerSheet';
+import { useDrawer } from '../context/DrawerContext';
 
 const MOOD_COLORS: Record<number, string> = {
   0: '#ef4444', 1: '#ef4444', 2: '#f97316', 3: '#f97316',
@@ -82,11 +83,16 @@ export function NowPage() {
   const { events, addEvent, deleteEvent } = useEvents();
   const { eventGroups, addEventGroup, updateEventGroup, deleteEventGroup, reorderEventGroups } = useEventGroups();
   const { activeLensIds } = useLenses();
+  const { openDrawer } = useDrawer();
   const today = getOrCreateToday();
   const streak = getStreak();
   const hasActiveLenses = activeLensIds.length > 0;
 
-  const [showState, setShowState] = useState(false);
+  // Panel + sheet state
+  const [momentSheetOpen, setMomentSheetOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<'activity' | 'state' | 'events' | null>(null);
+
+  const [showState, setShowState] = useState(false); // unused, kept for compat
   const [tempMood, setTempMood] = useState(today.mood);
   const [tempEnergy, setTempEnergy] = useState(today.energy);
   const [tempComment, setTempComment] = useState('');
@@ -239,7 +245,7 @@ export function NowPage() {
     addMoodSnapshot(tempMood, tempEnergy, tempComment, tempTrigger ?? undefined);
     setTempComment('');
     setTempTrigger(null);
-    setShowState(false);
+    setActivePanel(null);
   };
 
   const formatDate = () => {
@@ -332,11 +338,18 @@ export function NowPage() {
   }, [deleteMoodSnapshot, editingSnapshotId]);
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
+    <div className="flex flex-col h-full relative">
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
       {/* Header */}
       <div className="px-5 pt-6 pb-2">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={openDrawer}
+            className="p-1.5 rounded-xl hover:bg-accent cursor-pointer transition-colors text-muted-foreground shrink-0"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex-1">
             <h1 className="text-foreground">Сейчас</h1>
             <p className="text-sm text-muted-foreground capitalize">{formatDate()}</p>
           </div>
@@ -669,42 +682,342 @@ export function NowPage() {
           )}
         </div>
 
-        {/* ═══ Activity Grid (аккордеон) ═══ */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3">
+        {/* ═══ Three Pulse Cards + Panel ═══ */}
+        <div className="space-y-2">
+          {/* Compact pulse row */}
+          <div className="grid grid-cols-3 gap-2">
+            {/* Активность */}
             <button
-              onClick={() => setGridExpanded(!gridExpanded)}
-              className="flex items-center gap-2 flex-1 cursor-pointer text-left"
+              onClick={() => setActivePanel(activePanel === 'activity' ? null : 'activity')}
+              className="rounded-2xl border p-3 text-left flex flex-col gap-1.5 transition-all cursor-pointer"
+              style={activePanel === 'activity'
+                ? { backgroundColor: 'rgba(194,105,42,0.07)', borderColor: 'rgba(194,105,42,0.4)' }
+                : { backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' }}
             >
-              <p className="text-sm text-muted-foreground">
-                {activeActivities.length > 0 ? 'Добавить ещё активность' : 'Начать активность'}
-              </p>
-              {gridExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              <div className="flex items-start justify-between">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: 'rgba(194,105,42,0.12)' }}>
+                  {activeActivities.length > 0 ? (activities.find(a => a.id === activeActivities[0])?.emoji ?? '💼') : '💼'}
+                </div>
+                {activeActivities.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse mt-0.5" />}
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">Активность</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                  {activeActivities.length > 0 ? `${activeActivities.length} идёт` : 'Не начата'}
+                </p>
+              </div>
             </button>
+
+            {/* Состояние */}
             <button
-              onClick={(e) => { e.stopPropagation(); setGridEditMode(!gridEditMode); if (!gridExpanded) setGridExpanded(true); }}
-              className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent ml-1"
+              onClick={() => setActivePanel(activePanel === 'state' ? null : 'state')}
+              className="rounded-2xl border p-3 text-left flex flex-col gap-1.5 transition-all cursor-pointer"
+              style={activePanel === 'state'
+                ? { backgroundColor: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.35)' }
+                : { backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' }}
             >
-              {gridEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
+              <div className="flex items-start justify-between">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: 'rgba(59,130,246,0.10)' }}>
+                  {today.mood >= 8 ? '😊' : today.mood >= 5 ? '😐' : '😔'}
+                </div>
+                <span className="text-[11px] font-semibold mt-0.5" style={{ color: MOOD_COLORS[today.mood] }}>{today.mood}</span>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">Состояние</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{MOOD_LABELS[today.mood]}</p>
+              </div>
+            </button>
+
+            {/* События */}
+            <button
+              onClick={() => setActivePanel(activePanel === 'events' ? null : 'events')}
+              className="rounded-2xl border p-3 text-left flex flex-col gap-1.5 transition-all cursor-pointer"
+              style={activePanel === 'events'
+                ? { backgroundColor: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.35)' }
+                : { backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' }}
+            >
+              <div className="flex items-start justify-between">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: 'rgba(245,158,11,0.10)' }}>
+                  {today.events.length > 0 ? (events.find(e => e.id === today.events[0]?.eventId)?.emoji ?? '⚡') : '⚡'}
+                </div>
+                <span className="text-[11px] font-medium text-muted-foreground mt-0.5">{today.events.length || '—'}</span>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">События</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {today.events.length > 0 ? `${today.events.length} отмечено` : 'Нет'}
+                </p>
+              </div>
             </button>
           </div>
+
+          {/* Expanded panel */}
           <AnimatePresence>
-            {gridExpanded && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                <div className="px-4 pb-4">
-                  {gridEditMode && (
-                    <p className="text-xs text-muted-foreground mb-2">Перетаскивайте или нажмите для редактирования</p>
+            {activePanel && (
+              <motion.div
+                key={activePanel}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="bg-card rounded-2xl border border-border overflow-hidden">
+                  {/* ── Activity Panel ── */}
+                  {activePanel === 'activity' && (
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs text-muted-foreground">
+                          {activeActivities.length > 0 ? 'Добавить ещё активность' : 'Начать активность'}
+                        </p>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setGridEditMode(!gridEditMode); }}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent"
+                        >
+                          {gridEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
+                        </button>
+                      </div>
+                      {gridEditMode && (
+                        <p className="text-xs text-muted-foreground mb-2">Перетаскивайте или нажмите для редактирования</p>
+                      )}
+                      <DraggableActivityGrid
+                        activities={activities}
+                        activeActivities={activeActivities}
+                        editMode={gridEditMode}
+                        onToggle={handleToggle}
+                        onReorder={reorderActivities}
+                        onDelete={deleteActivityType}
+                        onEdit={(act) => { setSheetActivity(act); setSheetOpen(true); }}
+                        onAdd={() => { setSheetActivity(null); setSheetOpen(true); }}
+                      />
+                    </div>
                   )}
-                  <DraggableActivityGrid
-                    activities={activities}
-                    activeActivities={activeActivities}
-                    editMode={gridEditMode}
-                    onToggle={handleToggle}
-                    onReorder={reorderActivities}
-                    onDelete={deleteActivityType}
-                    onEdit={(act) => { setSheetActivity(act); setSheetOpen(true); }}
-                    onAdd={() => { setSheetActivity(null); setSheetOpen(true); }}
-                  />
+
+                  {/* ── State Panel ── */}
+                  {activePanel === 'state' && (
+                    <div className="px-4 pb-4 pt-4 space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-muted-foreground">Настроение</span>
+                          <span className="text-sm" style={{ color: MOOD_COLORS[tempMood] }}>{tempMood} — {MOOD_LABELS[tempMood]}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          {Array.from({ length: 11 }, (_, i) => (
+                            <button key={i} onClick={() => setTempMood(i)} className="flex-1 rounded-md transition-all cursor-pointer" style={{ height: `${14 + i * 2}px`, backgroundColor: i <= tempMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= tempMood ? 1 : 0.35 }} />
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-muted-foreground">Энергия</span>
+                          <span className="text-sm" style={{ color: '#eab308' }}>{tempEnergy}/10</span>
+                        </div>
+                        <div className="flex gap-1">
+                          {Array.from({ length: 11 }, (_, i) => (
+                            <button key={i} onClick={() => setTempEnergy(i)} className="flex-1 rounded-md transition-all cursor-pointer" style={{ height: `${14 + i * 2}px`, backgroundColor: i <= tempEnergy ? '#eab308' : '#e5e7eb', opacity: i <= tempEnergy ? 1 : 0.35 }} />
+                          ))}
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        value={tempComment}
+                        onChange={(e) => setTempComment(e.target.value)}
+                        placeholder="Заметка..."
+                        className="w-full text-sm px-3 py-2 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
+                      />
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1.5">Что вызвало изменение?</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {([
+                            { id: 'work', label: '💼 Работа' },
+                            { id: 'rest', label: '😴 Отдых' },
+                            { id: 'social', label: '👥 Общение' },
+                            { id: 'physical', label: '🏃 Физическое' },
+                            { id: 'event', label: '⚡ Событие' },
+                            { id: 'spontaneous', label: '✨ Само по себе' },
+                          ] as { id: MoodSnapshot['trigger']; label: string }[]).map((t) => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setTempTrigger(tempTrigger === t.id ? null : t.id)}
+                              className={`px-2.5 py-1 rounded-lg text-xs border transition-all cursor-pointer ${
+                                tempTrigger === t.id
+                                  ? 'bg-primary/10 border-primary text-primary'
+                                  : 'border-border text-muted-foreground hover:border-primary/30'
+                              }`}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button onClick={handleSaveState} className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm cursor-pointer hover:opacity-90 transition-opacity">Записать состояние</button>
+                    </div>
+                  )}
+
+                  {/* ── Events Panel ── */}
+                  {activePanel === 'events' && (
+                    <div>
+                      <div className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">События</span>
+                          {today.events.length > 0 && !eventsEditMode && (
+                            <div className="flex gap-0.5">
+                              {today.events.slice(0, 6).map((e) => {
+                                const tag = events.find((t) => t.id === e.eventId);
+                                return tag ? <span key={e.eventId} className="text-sm">{tag.emoji}</span> : null;
+                              })}
+                              {today.events.length > 6 && <span className="text-xs text-muted-foreground">+{today.events.length - 6}</span>}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => { setEventsEditMode(!eventsEditMode); setRenamingGroupId(null); setAddingInGroup(false); }}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent"
+                        >
+                          {eventsEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
+                        </button>
+                      </div>
+                      <div className="px-4 pb-4 space-y-3">
+                        {!eventsEditMode && (
+                          <p className="text-[10px] text-muted-foreground">Тап — отметить · Ещё тап — множитель ×2…×10 🎰 · Долгий тап — заметка</p>
+                        )}
+                        {(() => {
+                          const ungrouped = events.filter((t) => !t.groupId);
+                          if (ungrouped.length === 0 && !eventsEditMode) return null;
+                          return (
+                            <div className="flex flex-wrap gap-2">
+                              {ungrouped.map((tag) => renderEventChip(tag))}
+                              {eventsEditMode && (
+                                <button
+                                  onClick={() => { setAddingInGroup('__ungrouped__'); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
+                                  className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        {eventGroups.map((group, groupIdx) => {
+                          const groupEvents = events.filter((t) => t.groupId === group.id);
+                          const isRenaming = renamingGroupId === group.id;
+                          return (
+                            <div key={group.id} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <div className="h-px flex-1 bg-border" />
+                                {isRenaming ? (
+                                  <input
+                                    autoFocus
+                                    value={editGroupLabel}
+                                    onChange={(e) => setEditGroupLabel(e.target.value)}
+                                    onBlur={() => { if (editGroupLabel.trim()) updateEventGroup(group.id, editGroupLabel.trim()); setRenamingGroupId(null); }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenamingGroupId(null); }}
+                                    className="text-[11px] px-2 py-0.5 rounded bg-accent/60 border-0 outline-none w-28 text-center"
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() => { if (eventsEditMode) { setRenamingGroupId(group.id); setEditGroupLabel(group.label); } }}
+                                    className={`text-[11px] text-muted-foreground px-1 flex items-center gap-1 ${eventsEditMode ? 'cursor-pointer hover:text-foreground' : ''}`}
+                                  >
+                                    {group.label}
+                                    {eventsEditMode && <Pencil className="w-2.5 h-2.5 opacity-40" />}
+                                  </span>
+                                )}
+                                <div className="h-px flex-1 bg-border" />
+                                {eventsEditMode && (
+                                  <div className="flex items-center gap-0.5 shrink-0">
+                                    <button onClick={() => reorderEventGroups(groupIdx, groupIdx - 1)} disabled={groupIdx === 0} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20">
+                                      <ChevronUp className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => reorderEventGroups(groupIdx, groupIdx + 1)} disabled={groupIdx === eventGroups.length - 1} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20">
+                                      <ChevronDown className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => deleteEventGroup(group.id)} className="p-0.5 rounded cursor-pointer text-muted-foreground/30 hover:text-red-500 transition-colors">
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {groupEvents.map((tag) => renderEventChip(tag))}
+                                {eventsEditMode && (
+                                  <button
+                                    onClick={() => { setAddingInGroup(group.id); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
+                                    className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <AnimatePresence>
+                          {addingInGroup !== false && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                              <div className="p-3 rounded-xl bg-accent/50 space-y-2.5">
+                                <p className="text-[10px] text-muted-foreground">Новое событие</p>
+                                <div className="flex gap-3 items-center">
+                                  <button
+                                    onClick={() => setShowEventEmojiPicker(!showEventEmojiPicker)}
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer border-2 border-primary/20 bg-card text-xl hover:scale-105 transition-transform"
+                                  >
+                                    {newEventEmoji || '?'}
+                                  </button>
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    value={newEventLabel}
+                                    onChange={(e) => setNewEventLabel(e.target.value)}
+                                    placeholder="Название"
+                                    className="w-full text-sm px-3 py-2 rounded-lg bg-card border-0 outline-none focus:ring-1 focus:ring-primary/20"
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && newEventEmoji && newEventLabel.trim()) {
+                                        addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string });
+                                        setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false);
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                {showEventEmojiPicker && (
+                                  <div className="grid grid-cols-10 gap-1 p-2 bg-card rounded-xl">
+                                    {EVENT_EMOJIS.map((e) => (
+                                      <button key={e} onClick={() => { setNewEventEmoji(e); setShowEventEmojiPicker(false); }} className={`w-7 h-7 rounded-lg flex items-center justify-center text-base cursor-pointer transition-all ${newEventEmoji === e ? 'bg-primary/10 scale-110' : 'hover:bg-accent'}`}>{e}</button>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      if (newEventEmoji && newEventLabel.trim()) {
+                                        addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string });
+                                        setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false); setShowEventEmojiPicker(false);
+                                      }
+                                    }}
+                                    disabled={!newEventEmoji || !newEventLabel.trim()}
+                                    className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs cursor-pointer disabled:opacity-40 hover:opacity-90 transition-opacity"
+                                  >Добавить</button>
+                                  <button
+                                    onClick={() => { setAddingInGroup(false); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
+                                    className="px-3 py-2 rounded-lg bg-card text-muted-foreground text-xs cursor-pointer hover:bg-accent"
+                                  >Отмена</button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        {eventsEditMode && (
+                          <button
+                            onClick={() => addEventGroup('Новая группа')}
+                            className="w-full py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-primary/60 cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <Plus className="w-3.5 h-3.5" />Добавить группу
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -727,90 +1040,8 @@ export function NowPage() {
           onDelete={sheetActivity ? () => { deleteActivityType(sheetActivity.id); setSheetOpen(false); } : undefined}
         />
 
-        {/* ═══ Quick State ═══ */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <button onClick={() => setShowState(!showState)} className="w-full p-4 flex items-center justify-between cursor-pointer">
-            <div className="flex items-center gap-3">
-              <div className="flex gap-1.5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" style={{ backgroundColor: MOOD_COLORS[today.mood] }}>{today.mood}</div>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" style={{ backgroundColor: '#eab308' }}>{today.energy}</div>
-              </div>
-              <div>
-                <p className="text-sm">Как ты сейчас?</p>
-                <p className="text-xs text-muted-foreground">{MOOD_LABELS[today.mood]} · энергия {today.energy}/10</p>
-              </div>
-            </div>
-            {showState ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-          </button>
-          <AnimatePresence>
-            {showState && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                <div className="px-4 pb-4 space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-muted-foreground">Настроение</span>
-                      <span className="text-sm" style={{ color: MOOD_COLORS[tempMood] }}>{tempMood} — {MOOD_LABELS[tempMood]}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      {Array.from({ length: 11 }, (_, i) => (
-                        <button key={i} onClick={() => setTempMood(i)} className="flex-1 rounded-md transition-all cursor-pointer" style={{ height: `${14 + i * 2}px`, backgroundColor: i <= tempMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= tempMood ? 1 : 0.35 }} />
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-muted-foreground">Энергия</span>
-                      <span className="text-sm" style={{ color: '#eab308' }}>{tempEnergy}/10</span>
-                    </div>
-                    <div className="flex gap-1">
-                      {Array.from({ length: 11 }, (_, i) => (
-                        <button key={i} onClick={() => setTempEnergy(i)} className="flex-1 rounded-md transition-all cursor-pointer" style={{ height: `${14 + i * 2}px`, backgroundColor: i <= tempEnergy ? '#eab308' : '#e5e7eb', opacity: i <= tempEnergy ? 1 : 0.35 }} />
-                      ))}
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={tempComment}
-                    onChange={(e) => setTempComment(e.target.value)}
-                    placeholder="Заметка..."
-                    className="w-full text-sm px-3 py-2 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
-                  />
-                  {/* Trigger tags (patterns layer) */}
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1.5">Что вызвало изменение?</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {([
-                        { id: 'work', label: '💼 Работа' },
-                        { id: 'rest', label: '😴 Отдых' },
-                        { id: 'social', label: '👥 Общение' },
-                        { id: 'physical', label: '🏃 Физическое' },
-                        { id: 'event', label: '⚡ Событие' },
-                        { id: 'spontaneous', label: '✨ Само по себе' },
-                      ] as { id: MoodSnapshot['trigger']; label: string }[]).map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => setTempTrigger(tempTrigger === t.id ? null : t.id)}
-                          className={`px-2.5 py-1 rounded-lg text-xs border transition-all cursor-pointer ${
-                            tempTrigger === t.id
-                              ? 'bg-primary/10 border-primary text-primary'
-                              : 'border-border text-muted-foreground hover:border-primary/30'
-                          }`}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <button onClick={handleSaveState} className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm cursor-pointer hover:opacity-90 transition-opacity">Записать состояние</button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* ═══ Events ═══ */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        {/* ═══ Events (legacy — now inside Three Pulse Cards Panel) ═══ */}
+        <div className="hidden">
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm">События</span>
@@ -985,6 +1216,116 @@ export function NowPage() {
         </div>
 
       </div>
+      </div>{/* end scroll wrapper */}
+
+      {/* FAB — opens Moment Sheet */}
+      <div className="absolute bottom-6 right-5 z-20">
+        <button
+          onClick={() => setMomentSheetOpen(true)}
+          className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center cursor-pointer hover:opacity-90 transition-all active:scale-95"
+          style={{ boxShadow: '0 4px 24px rgba(194,105,42,0.35)' }}
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Moment Sheet — quick mood+events capture */}
+      <Drawer.Root open={momentSheetOpen} onOpenChange={setMomentSheetOpen}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 bg-black/40 z-40" />
+          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl outline-none max-h-[85vh] overflow-y-auto" style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
+            <div className="p-5 space-y-4">
+              <div className="w-10 h-1 bg-border rounded-full mx-auto" />
+              <h2 className="text-base font-semibold text-foreground">Записать состояние</h2>
+
+              {/* Mood */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-muted-foreground">Настроение</span>
+                  <span className="text-sm" style={{ color: MOOD_COLORS[tempMood] }}>{tempMood} — {MOOD_LABELS[tempMood]}</span>
+                </div>
+                <div className="flex gap-1">
+                  {Array.from({ length: 11 }, (_, i) => (
+                    <button key={i} onClick={() => setTempMood(i)} className="flex-1 rounded-md transition-all cursor-pointer" style={{ height: `${14 + i * 2}px`, backgroundColor: i <= tempMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= tempMood ? 1 : 0.35 }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Energy */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-muted-foreground">Энергия</span>
+                  <span className="text-sm" style={{ color: '#eab308' }}>{tempEnergy}/10</span>
+                </div>
+                <div className="flex gap-1">
+                  {Array.from({ length: 11 }, (_, i) => (
+                    <button key={i} onClick={() => setTempEnergy(i)} className="flex-1 rounded-md transition-all cursor-pointer" style={{ height: `${14 + i * 2}px`, backgroundColor: i <= tempEnergy ? '#eab308' : '#e5e7eb', opacity: i <= tempEnergy ? 1 : 0.35 }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Note */}
+              <input
+                type="text"
+                value={tempComment}
+                onChange={(e) => setTempComment(e.target.value)}
+                placeholder="Заметка..."
+                className="w-full text-sm px-3 py-2 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
+              />
+
+              {/* Trigger */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5">Что вызвало изменение?</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    { id: 'work', label: '💼 Работа' },
+                    { id: 'rest', label: '😴 Отдых' },
+                    { id: 'social', label: '👥 Общение' },
+                    { id: 'physical', label: '🏃 Физическое' },
+                    { id: 'event', label: '⚡ Событие' },
+                    { id: 'spontaneous', label: '✨ Само по себе' },
+                  ] as { id: MoodSnapshot['trigger']; label: string }[]).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTempTrigger(tempTrigger === t.id ? null : t.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs border transition-all cursor-pointer ${
+                        tempTrigger === t.id
+                          ? 'bg-primary/10 border-primary text-primary'
+                          : 'border-border text-muted-foreground hover:border-primary/30'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick events */}
+              {events.filter(e => !e.groupId).length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">Быстрые события</p>
+                  <div className="flex flex-wrap gap-2">
+                    {events.filter(e => !e.groupId).map((tag) => renderEventChip(tag))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  addMoodSnapshot(tempMood, tempEnergy, tempComment, tempTrigger ?? undefined);
+                  setTempComment('');
+                  setTempTrigger(null);
+                  setMomentSheetOpen(false);
+                }}
+                className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm cursor-pointer hover:opacity-90 transition-opacity font-medium"
+              >
+                Зафиксировать →
+              </button>
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
 
       {/* Description drawer */}
       <Drawer.Root open={descSheet.open} onOpenChange={(open) => { if (!open) setDescSheet({ open: false, eventId: null, text: '', intensity: 1 }); }}>

@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronLeft, ChevronRight, Moon, Dumbbell, Footprints, Smile } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Moon, Dumbbell, Footprints, Smile, Menu } from 'lucide-react';
 import { useDays, isLayerUnlocked, useDevUnlock, useEvents } from '../data/store';
 import { DayLog, ACTIVITIES } from '../data/types';
+import { useDrawer } from '../context/DrawerContext';
 
 const MOOD_COLORS: Record<number, string> = {
   0: '#ef4444', 1: '#ef4444', 2: '#f97316', 3: '#f97316',
@@ -19,10 +20,14 @@ export function FeedPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
   const navigate = useNavigate();
+  const { openDrawer } = useDrawer();
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-5 pt-6 pb-3">
+      <div className="px-5 pt-6 pb-3 flex items-center gap-3">
+        <button onClick={openDrawer} className="p-1.5 rounded-xl hover:bg-accent cursor-pointer transition-colors text-muted-foreground shrink-0">
+          <Menu className="w-5 h-5" />
+        </button>
         <h1 className="text-foreground">Лента</h1>
       </div>
 
