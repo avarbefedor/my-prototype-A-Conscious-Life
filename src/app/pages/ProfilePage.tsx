@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Target, Bell, Smartphone, Moon as MoonIcon, Settings, Sliders, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Check, GripVertical, Layers, ChevronRight, Unlock } from 'lucide-react';
+import { User, Target, Bell, Smartphone, Moon as MoonIcon, Settings, Sliders, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Check, GripVertical, Layers, ChevronRight, Unlock, Menu } from 'lucide-react';
+import { useDrawer } from '../context/DrawerContext';
 import { ARCHETYPES, ACTIVITIES, BUILT_IN_LENSES, ACT_VALUES_BANK } from '../data/types';
 import { useDays, detectArchetype, useActivities, useLenses, useDevUnlock } from '../data/store';
 import { toast } from 'sonner';
@@ -45,6 +46,7 @@ export function ProfilePage() {
   const [remindTime, setRemindTime] = useState(true);
   const { unlocked: devAllUnlocked, toggle: toggleDevUnlock } = useDevUnlock();
   const [expandedLens, setExpandedLens] = useState<string | null>(null);
+  const { openDrawer } = useDrawer();
 
   // Activity editor state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -159,7 +161,10 @@ export function ProfilePage() {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      <div className="px-5 pt-6 pb-3">
+      <div className="px-5 pt-6 pb-3 flex items-center gap-3">
+        <button onClick={openDrawer} className="p-1.5 rounded-xl hover:bg-accent cursor-pointer transition-colors text-muted-foreground shrink-0">
+          <Menu className="w-5 h-5" />
+        </button>
         <h1 className="text-foreground">Профиль</h1>
       </div>
 

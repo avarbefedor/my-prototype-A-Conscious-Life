@@ -2,13 +2,14 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Drawer } from 'vaul';
-import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, Settings, Check, Pencil, Moon as MoonIcon } from 'lucide-react';
+import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, Settings, Check, Pencil, Moon as MoonIcon, Menu, Activity, Smile, Zap, FileText } from 'lucide-react';
 import { useDays, getStreak, useActivities, useEvents, useEventGroups, useLenses } from '../data/store';
 import { MOOD_LABELS } from '../data/types';
 import type { ActivityType, EventType, MoodSnapshot } from '../data/types';
 import { DraggableActivityGrid } from '../components/DraggableActivityGrid';
 import { ActivityBottomSheet } from '../components/ActivityBottomSheet';
 import { EmojiPickerSheet } from '../components/EmojiPickerSheet';
+import { useDrawer } from '../context/DrawerContext';
 
 const MOOD_COLORS: Record<number, string> = {
   0: '#ef4444', 1: '#ef4444', 2: '#f97316', 3: '#f97316',
@@ -82,9 +83,18 @@ export function NowPage() {
   const { events, addEvent, deleteEvent } = useEvents();
   const { eventGroups, addEventGroup, updateEventGroup, deleteEventGroup, reorderEventGroups } = useEventGroups();
   const { activeLensIds } = useLenses();
+  const { openDrawer } = useDrawer();
   const today = getOrCreateToday();
   const streak = getStreak();
   const hasActiveLenses = activeLensIds.length > 0;
+
+  // FAB state
+  const [fabOpen, setFabOpen] = useState(false);
+
+  // Scroll refs for FAB actions
+  const gridRef = useRef<HTMLDivElement>(null);
+  const stateRef = useRef<HTMLDivElement>(null);
+  const eventsRef = useRef<HTMLDivElement>(null);
 
   const [showState, setShowState] = useState(false);
   const [tempMood, setTempMood] = useState(today.mood);
@@ -332,11 +342,18 @@ export function NowPage() {
   }, [deleteMoodSnapshot, editingSnapshotId]);
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
+    <div className="flex flex-col h-full relative">
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
       {/* Header */}
       <div className="px-5 pt-6 pb-2">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={openDrawer}
+            className="p-1.5 rounded-xl hover:bg-accent cursor-pointer transition-colors text-muted-foreground shrink-0"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex-1">
             <h1 className="text-foreground">Сейчас</h1>
             <p className="text-sm text-muted-foreground capitalize">{formatDate()}</p>
           </div>
@@ -670,7 +687,7 @@ export function NowPage() {
         </div>
 
         {/* ═══ Activity Grid (аккордеон) ═══ */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div ref={gridRef} className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3">
             <button
               onClick={() => setGridExpanded(!gridExpanded)}
@@ -728,7 +745,7 @@ export function NowPage() {
         />
 
         {/* ═══ Quick State ═══ */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div ref={stateRef} className="bg-card rounded-2xl border border-border overflow-hidden">
           <button onClick={() => setShowState(!showState)} className="w-full p-4 flex items-center justify-between cursor-pointer">
             <div className="flex items-center gap-3">
               <div className="flex gap-1.5">
@@ -810,7 +827,7 @@ export function NowPage() {
         </div>
 
         {/* ═══ Events ═══ */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div ref={eventsRef} className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm">События</span>
@@ -985,6 +1002,52 @@ export function NowPage() {
         </div>
 
       </div>
+      </div>{/* end scroll wrapper */}
+
+      {/* FAB — fixed at bottom-right, outside scroll */}
+      <div className="absolute bottom-6 right-5 z-20 flex flex-col items-end gap-2">
+        <AnimatePresence>
+          {fabOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.15 }}
+              className="flex flex-col gap-2 items-end"
+            >
+              {[
+                { icon: Activity, label: 'Активность', action: () => { setGridExpanded(true); setFabOpen(false); setTimeout(() => gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100); } },
+                { icon: Smile, label: 'Состояние', action: () => { setShowState(true); setFabOpen(false); setTimeout(() => stateRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100); } },
+                { icon: Zap, label: 'Событие', action: () => { setFabOpen(false); setTimeout(() => eventsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100); } },
+                { icon: FileText, label: 'Заметка', action: () => { setFabOpen(false); } },
+              ].map(({ icon: Icon, label, action }) => (
+                <button
+                  key={label}
+                  onClick={action}
+                  className="flex items-center gap-2.5 pl-3 pr-4 py-2.5 rounded-2xl bg-card border border-border shadow-lg cursor-pointer hover:bg-accent transition-colors"
+                >
+                  <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-foreground whitespace-nowrap">{label}</span>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <button
+          onClick={() => setFabOpen(!fabOpen)}
+          className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center cursor-pointer hover:opacity-90 transition-all active:scale-95"
+          style={{ boxShadow: '0 4px 24px rgba(194,105,42,0.35)' }}
+        >
+          <motion.div animate={{ rotate: fabOpen ? 45 : 0 }} transition={{ duration: 0.2 }}>
+            <Plus className="w-6 h-6" />
+          </motion.div>
+        </button>
+      </div>
+
+      {/* FAB backdrop */}
+      {fabOpen && (
+        <div className="absolute inset-0 z-10" onClick={() => setFabOpen(false)} />
+      )}
 
       {/* Description drawer */}
       <Drawer.Root open={descSheet.open} onOpenChange={(open) => { if (!open) setDescSheet({ open: false, eventId: null, text: '', intensity: 1 }); }}>

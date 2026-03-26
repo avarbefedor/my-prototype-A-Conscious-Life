@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Lightbulb, ChevronDown, ChevronUp, TrendingUp, HelpCircle, Brain, Zap, Layers } from 'lucide-react';
+import { Lightbulb, ChevronDown, ChevronUp, TrendingUp, HelpCircle, Brain, Zap, Layers, Menu } from 'lucide-react';
+import { useDrawer } from '../context/DrawerContext';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { mockInsights } from '../data/mockData';
@@ -62,11 +63,17 @@ export function InsightsPage() {
 
   const isLocked = (i: Insight) => i.layer !== 'base' && !isLayerUnlocked(i.layer as 'patterns' | 'energy' | 'lenses');
   const lockedCount = mockInsights.filter(isLocked).length;
+  const { openDrawer } = useDrawer();
 
   return (
     <div className="flex flex-col h-full">
       <div className="px-5 pt-6 pb-1">
-        <h1 className="text-foreground">Инсайты</h1>
+        <div className="flex items-center gap-3 mb-1">
+          <button onClick={openDrawer} className="p-1.5 rounded-xl hover:bg-accent cursor-pointer transition-colors text-muted-foreground shrink-0">
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="text-foreground">Инсайты</h1>
+        </div>
         <p className="text-sm text-muted-foreground mt-1">Что система заметила за последний месяц</p>
         {lockedCount > 0 && (
           <div className="mt-2 px-3 py-2 rounded-xl bg-violet-50 border border-violet-100 text-xs text-violet-600">
