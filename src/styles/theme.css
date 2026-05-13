@@ -4,6 +4,7 @@
   --font-size: 16px;
   --font-sans: 'DM Sans', system-ui, sans-serif;
   --font-display: 'Fraunces', Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
   --background: #FAF7F2;
   --foreground: #1C1917;
   --card: #FFFFFF;
@@ -12,6 +13,7 @@
   --popover-foreground: #1C1917;
   --primary: #C2692A;
   --primary-foreground: #FFFFFF;
+  --primary-light: #F5E6D8;
   --secondary: #F0EBE3;
   --secondary-foreground: #44403C;
   --muted: #EDE8E0;
@@ -24,6 +26,13 @@
   --input: transparent;
   --input-background: #F5F0E8;
   --switch-background: #D6D0C8;
+  --bento-bg: #EFEAE3;
+  --cover-peach: #F2D9BD;
+  --cover-sage: #D9E1D0;
+  --cover-lilac: #E0D5DA;
+  --cover-sand: #EBDFC9;
+  --cover-sky: #D1DCE1;
+  --cover-coral: #F0CFC0;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: oklch(0.708 0 0);
@@ -85,6 +94,15 @@
 @theme inline {
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --color-bento-bg: var(--bento-bg);
+  --color-cover-peach: var(--cover-peach);
+  --color-cover-sage: var(--cover-sage);
+  --color-cover-lilac: var(--cover-lilac);
+  --color-cover-sand: var(--cover-sand);
+  --color-cover-sky: var(--cover-sky);
+  --color-cover-coral: var(--cover-coral);
+  --color-primary-light: var(--primary-light);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

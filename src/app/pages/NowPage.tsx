@@ -2,14 +2,15 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Drawer } from 'vaul';
-import { Flame, ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, Settings, Check, Pencil, Moon as MoonIcon, Menu } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, Settings, Check, Pencil, Menu } from 'lucide-react';
 import { useDays, getStreak, useActivities, useEvents, useEventGroups, useLenses } from '../data/store';
 import { MOOD_LABELS } from '../data/types';
-import type { ActivityType, EventType, MoodSnapshot } from '../data/types';
+import type { ActivityType, MoodSnapshot } from '../data/types';
 import { DraggableActivityGrid } from '../components/DraggableActivityGrid';
 import { ActivityBottomSheet } from '../components/ActivityBottomSheet';
 import { EmojiPickerSheet } from '../components/EmojiPickerSheet';
 import { useDrawer } from '../context/DrawerContext';
+import { MoodRing } from '../components/MoodRing';
 
 const MOOD_COLORS: Record<number, string> = {
   0: '#ef4444', 1: '#ef4444', 2: '#f97316', 3: '#f97316',
@@ -337,883 +338,455 @@ export function NowPage() {
     if (editingSnapshotId === id) setEditingSnapshotId(null);
   }, [deleteMoodSnapshot, editingSnapshotId]);
 
+
+  const greeting = hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
+
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full relative" style={{ background: 'var(--color-bento-bg)' }}>
       <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
-      {/* Header */}
-      <div className="px-5 pt-6 pb-2">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={openDrawer}
-            className="p-1.5 rounded-xl hover:bg-accent cursor-pointer transition-colors text-muted-foreground shrink-0"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-foreground">Сейчас</h1>
-            <p className="text-sm text-muted-foreground capitalize">{formatDate()}</p>
-          </div>
-          {streak > 0 && (
-            <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full">
-              <Flame className="w-4 h-4" />
-              <span className="text-sm">{streak}</span>
-            </div>
-          )}
+
+      {/* ─── Header ─── */}
+      <div className="px-4 pt-5 pb-0 flex items-end justify-between">
+        <div>
+          <p style={{ fontSize: 12, color: '#78716C', marginBottom: 2 }}>{greeting}</p>
+          <p style={{ fontFamily: 'Fraunces, Georgia, serif', fontStyle: 'italic', fontSize: 22, fontWeight: 500, color: '#1C1917', lineHeight: 1.1 }} className="capitalize">{formatDate()}</p>
         </div>
+        <button
+          onClick={openDrawer}
+          style={{ width: 38, height: 38, borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+        >
+          <Menu className="w-4 h-4 text-muted-foreground" />
+        </button>
       </div>
 
-      <div className="px-5 pb-6 space-y-3">
-        {/* ═══ Morning Intent (лінзи активны) ═══ */}
+      <div className="px-4 pt-3 pb-6 space-y-2">
+
+        {/* ─── Morning intent ─── */}
         {hasActiveLenses && (
-          <div className="bg-violet-50 rounded-2xl p-4 border border-violet-100 space-y-2">
-            <p className="text-xs text-violet-500">Намерение на сегодня</p>
+          <div style={{ background: 'linear-gradient(135deg,#EEF2FF,#F5F3FF)', borderRadius: 18, padding: '14px 16px', border: '1.5px solid #e0e7ff' }}>
+            <p style={{ fontSize: 11, color: '#6366f1', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Намерение на сегодня</p>
             <textarea
               value={today.morningIntent ?? ''}
               onChange={(e) => saveDay({ ...today, morningIntent: e.target.value })}
-              placeholder="Что для тебя важно сегодня? Как ты хочешь прожить этот день?"
+              placeholder="Как ты хочешь прожить этот день?"
               rows={2}
-              className="w-full text-sm bg-transparent border-0 outline-none resize-none placeholder:text-violet-300 text-violet-900"
+              style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: '#312e81', resize: 'none', fontFamily: 'DM Sans,sans-serif', lineHeight: 1.5 }}
             />
           </div>
         )}
 
-        {/* ═══ ЛЕНТА ДНЯ ═══ */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          {/* Header */}
-          <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-            <span className="text-sm font-medium">Лента дня</span>
-            {totalMinutes > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}ч${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}м` : ''}` : `${totalMinutes}м`} записано
-              </span>
-            )}
+        {/* ─── Pair header: streak + mood ─── */}
+        <div className="grid grid-cols-2 gap-2">
+          <div style={{ background: 'var(--color-cover-coral)', borderRadius: 18, padding: '12px 14px', minHeight: 72 }}>
+            <div style={{ fontSize: 11, color: '#1C1917', opacity: 0.6, fontWeight: 500, marginBottom: 4 }}>🔥 Серия</div>
+            <div style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: 22, fontWeight: 700, color: '#1C1917', lineHeight: 1 }}>
+              {streak > 0 ? `${streak} дн.` : '—'}
+            </div>
           </div>
-
-          {/* Time bar */}
-          {totalMinutes > 0 && (
-            <div className="px-4 pb-3">
-              <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
-                {timelineStats.map((s) => (
-                  <div key={s.id} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${Math.max((s.mins / totalMinutes) * 100, 2)}%`, backgroundColor: s.act!.color }} />
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                {timelineStats.map((s) => (
-                  <div key={s.id} className="flex items-center gap-1">
-                    <span className="text-xs">{s.act!.emoji}</span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {s.mins >= 60 ? `${Math.floor(s.mins / 60)}ч${s.mins % 60 > 0 ? ` ${s.mins % 60}м` : ''}` : `${s.mins}м`}
-                    </span>
-                  </div>
-                ))}
-              </div>
+          <div style={{ background: 'var(--color-cover-sage)', borderRadius: 18, padding: '12px 14px', minHeight: 72 }}>
+            <div style={{ fontSize: 11, color: '#1C1917', opacity: 0.6, fontWeight: 500, marginBottom: 4 }}>Сегодня</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <div style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: 22, fontWeight: 700, color: '#1C1917', lineHeight: 1 }}>{today.mood}</div>
+              <div style={{ fontSize: 11, color: '#1C1917', opacity: 0.55 }}>/ {MOOD_LABELS[today.mood]}</div>
             </div>
-          )}
-
-          {/* Active entries — live zone */}
-          <AnimatePresence>
-            {activeEntries.length > 0 && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="px-3 pb-2 space-y-1.5 overflow-hidden">
-                {activeEntries.map(({ entry, actInfo }) => {
-                  const isCommenting = commentingEntry === entry.id;
-                  const hasComment = !!entry.comment;
-                  return (
-                    <motion.div key={entry.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} layout>
-                      <div className="rounded-xl px-3 py-2.5 flex items-center gap-2.5" style={{ backgroundColor: `${actInfo.color}12`, borderLeft: `3px solid ${actInfo.color}` }}>
-                        <span className="text-lg">{actInfo.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm" style={{ color: actInfo.color }}>{actInfo.label}</span>
-                            <span className="text-xs text-muted-foreground">· с {entry.startTime}</span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                          </div>
-                          {hasComment && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{entry.comment}</p>}
-                        </div>
-                        <button onClick={() => setCommentingEntry(isCommenting ? null : entry.id)} className="p-1.5 rounded-lg cursor-pointer transition-colors" style={{ color: hasComment ? actInfo.color : '#a1a1aa', backgroundColor: isCommenting ? `${actInfo.color}15` : 'transparent' }}>
-                          <MessageCircle className="w-4 h-4" style={hasComment ? { fill: `${actInfo.color}30` } : undefined} />
-                        </button>
-                        <button onClick={() => toggleActivity(actInfo.id)} className="p-1.5 rounded-lg cursor-pointer hover:bg-black/5 transition-colors">
-                          <X className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      </div>
-                      <AnimatePresence>
-                        {isCommenting && (
-                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-                            <div className="flex gap-2 mt-1 px-1">
-                              <input ref={commentRef} defaultValue={entry.comment || ''} placeholder="Заметка..." className="flex-1 text-sm px-3 py-2 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20" onKeyDown={(e) => { if (e.key === 'Enter') handleSaveComment(entry.id, (e.target as HTMLInputElement).value); if (e.key === 'Escape') setCommentingEntry(null); }} onBlur={(e) => handleSaveComment(entry.id, e.target.value)} />
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                      <AnimatePresence>
-                        {justStarted === actInfo.id && (
-                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-                            <div className="flex items-center gap-1 mt-1 px-1">
-                              <span className="text-[10px] text-muted-foreground shrink-0">Начал раньше?</span>
-                              {[-60, -30, -15, -5].map((m) => (
-                                <button key={m} onClick={() => handleTimeShift(actInfo.id, m)} className="flex-1 py-1 rounded-md text-[10px] cursor-pointer transition-colors" style={{ backgroundColor: `${actInfo.color}10`, color: actInfo.color }}>{m}м</button>
-                              ))}
-                              <button onClick={() => setJustStarted(null)} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground"><X className="w-3 h-3" /></button>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  );
-                })}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Empty state */}
-          {feedItems.length === 0 && activeEntries.length === 0 && (
-            <div className="px-4 pb-4 flex flex-col items-center text-center gap-2 py-6">
-              <span className="text-3xl">{isEvening ? '🌙' : new Date().getHours() < 12 ? '🌅' : '☀️'}</span>
-              <p className="text-sm text-muted-foreground">
-                {isEvening
-                  ? 'День почти завершён — подведи итог'
-                  : new Date().getHours() < 12
-                  ? 'Утро только начинается'
-                  : 'Запусти активность или отметь состояние'}
-              </p>
-              <p className="text-xs text-muted-foreground/60">Нажми на кружок активности ниже, чтобы начать</p>
-            </div>
-          )}
-
-          {/* Completed feed items */}
-          {feedItems.length > 0 && (
-            <div className="px-2 pb-2">
-              {(() => {
-                const result: JSX.Element[] = [];
-                let lastPeriod: string | null = null;
-                feedItems.forEach((item, idx) => {
-                  const period = getTimePeriod(item.time);
-                  if (period !== lastPeriod) {
-                    result.push(
-                      <div key={`anchor-${period}-${idx}`} className="flex items-center gap-2 my-2 px-2">
-                        <div className="h-px flex-1 bg-border" />
-                        <span className="text-[10px] text-muted-foreground">{PERIOD_LABELS[period]}</span>
-                        <div className="h-px flex-1 bg-border" />
-                      </div>
-                    );
-                    lastPeriod = period;
-                  }
-
-                  if (item.kind === 'activity') {
-                    const { entry, act } = item;
-                    const isEditing = editingEntry === entry.id;
-                    const duration = formatDuration(entry.startTime, entry.endTime);
-                    result.push(
-                      <div key={entry.id}>
-                        <button
-                          onClick={() => setEditingEntry(isEditing ? null : entry.id)}
-                          className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left transition-colors hover:bg-accent/50"
-                          style={{ backgroundColor: isEditing ? `${act.color}12` : `${act.color}06`, borderLeft: `3px solid ${act.color}` }}
-                        >
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${act.color}15` }}>
-                            <span className="text-base">{act.emoji}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm leading-tight" style={{ color: act.color }}>{act.label}</p>
-                            <p className="text-[11px] text-muted-foreground">{entry.startTime}–{entry.endTime}</p>
-                            {entry.comment && <p className="text-[11px] text-muted-foreground truncate">{entry.comment}</p>}
-                          </div>
-                          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{duration}</span>
-                        </button>
-                        <AnimatePresence>
-                          {isEditing && (
-                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-                              <div className="py-2 px-2 space-y-2.5">
-                                <input defaultValue={entry.comment || ''} placeholder="Заметка..." className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/40 border-0 outline-none" onBlur={(e) => handleSaveComment(entry.id, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-muted-foreground/50" /><span className="text-[10px] text-muted-foreground">Начало: {entry.startTime}</span></div>
-                                  <div className="flex gap-0.5">
-                                    {[-30, -5, -1].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'startTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">{m}м</button>))}
-                                    {[1, 5, 30].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'startTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">+{m}м</button>))}
-                                  </div>
-                                </div>
-                                {entry.endTime && (
-                                  <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-muted-foreground/50" /><span className="text-[10px] text-muted-foreground">Конец: {entry.endTime}</span></div>
-                                    <div className="flex gap-0.5">
-                                      {[-30, -5, -1].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'endTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">{m}м</button>))}
-                                      <button onClick={() => handleSetNow(entry.id, 'endTime')} className="flex-1 py-1 rounded text-[10px] cursor-pointer" style={{ backgroundColor: `${act.color}15`, color: act.color }}>Сейч</button>
-                                      {[1, 5, 30].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'endTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">+{m}м</button>))}
-                                    </div>
-                                  </div>
-                                )}
-                                <div>
-                                  <span className="text-[10px] text-muted-foreground mb-1 block">Сменить</span>
-                                  <div className="flex flex-wrap gap-1">
-                                    {activities.filter((a) => a.id !== entry.activityId).slice(0, 10).map((a) => (
-                                      <button key={a.id} onClick={() => handleChangeEntryActivity(entry.id, a.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: `${a.color}12` }} title={a.label}><span className="text-xs">{a.emoji}</span></button>
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="flex gap-1.5">
-                                  <button onClick={() => { deleteActivityEntry(entry.id); setEditingEntry(null); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"><Trash2 className="w-3 h-3" />Удалить</button>
-                                  <button onClick={() => setEditingEntry(null)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"><X className="w-3 h-3" />Закрыть</button>
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  } else {
-                    const { snap } = item;
-                    const isSelected = editingSnapshotId === snap.id;
-                    result.push(
-                      <div key={snap.id}>
-                        <button
-                          onClick={() => isSelected ? setEditingSnapshotId(null) : handleEditSnapshot(snap.id)}
-                          className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left hover:bg-accent/50"
-                          style={{ backgroundColor: isSelected ? `${MOOD_COLORS[snap.mood]}10` : undefined }}
-                        >
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shrink-0 relative" style={{ backgroundColor: MOOD_COLORS[snap.mood] }}>
-                            {snap.mood}
-                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card" style={{ backgroundColor: '#eab308', opacity: 0.5 + snap.energy / 20 }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm">😊 {snap.mood}/10</span>
-                              <span className="text-xs text-muted-foreground">· ⚡ {snap.energy}</span>
-                              {snap.trigger && <span className="text-[10px] text-muted-foreground">· {snap.trigger}</span>}
-                            </div>
-                            {snap.comment && <p className="text-[11px] text-muted-foreground truncate">{snap.comment}</p>}
-                          </div>
-                          <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{snap.time}</span>
-                        </button>
-                        <AnimatePresence>
-                          {isSelected && (() => (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="mt-2 pt-2 px-2 border-t border-border space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-muted-foreground">{snap.time}</span>
-                                  <div className="flex gap-1">
-                                    <button onClick={() => handleDeleteSnapshot(snap.id)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"><Trash2 className="w-3 h-3" /></button>
-                                    <button onClick={() => setEditingSnapshotId(null)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"><X className="w-3 h-3" /></button>
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[11px] text-muted-foreground">Настроение</span>
-                                    <span className="text-xs" style={{ color: MOOD_COLORS[editSnapMood] }}>{editSnapMood} — {MOOD_LABELS[editSnapMood]}</span>
-                                  </div>
-                                  <div className="flex gap-0.5">
-                                    {Array.from({ length: 11 }, (_, i) => (
-                                      <button key={i} onClick={() => setEditSnapMood(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= editSnapMood ? 1 : 0.3 }} />
-                                    ))}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[11px] text-muted-foreground">Энергия</span>
-                                    <span className="text-xs" style={{ color: '#eab308' }}>{editSnapEnergy}/10</span>
-                                  </div>
-                                  <div className="flex gap-0.5">
-                                    {Array.from({ length: 11 }, (_, i) => (
-                                      <button key={i} onClick={() => setEditSnapEnergy(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapEnergy ? '#eab308' : '#e5e7eb', opacity: i <= editSnapEnergy ? 1 : 0.3 }} />
-                                    ))}
-                                  </div>
-                                </div>
-                                <input
-                                  type="text"
-                                  value={editSnapComment}
-                                  onChange={(e) => setEditSnapComment(e.target.value)}
-                                  placeholder="Что повлияло? (необязательно)"
-                                  className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
-                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditSnapshot(); }}
-                                />
-                                <button onClick={handleSaveEditSnapshot} className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs cursor-pointer hover:opacity-90 transition-opacity">Сохранить</button>
-                              </div>
-                            </motion.div>
-                          ))()}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  }
-                });
-                return result;
-              })()}
-            </div>
-          )}
-
-          {/* Events summary in feed */}
-          {today.events.length > 0 && (
-            <div className="mx-4 mb-3 px-3 py-2.5 rounded-xl bg-accent/40 flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] text-muted-foreground shrink-0">События:</span>
-              {today.events.map((e) => {
-                const tag = events.find((t) => t.id === e.eventId);
-                return tag ? (
-                  <span key={e.eventId} className="text-sm" title={tag.label}>
-                    {tag.emoji}{e.multiplier > 1 ? <sup className="text-[9px] text-muted-foreground">×{e.multiplier}</sup> : null}
-                  </span>
-                ) : null;
-              })}
-            </div>
-          )}
-
-          {/* Reflection card — always visible until day is complete */}
-          {!isComplete && (
-            <div className="mx-4 mb-4 mt-1">
-              <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <MoonIcon className="w-4 h-4 text-indigo-400" />
-                  <span className="text-sm text-indigo-700">
-                    {hour < 12 ? 'Как хочешь прожить этот день?' : hour < 18 ? 'Добавь заметку о дне' : 'Как прошёл день?'}
-                  </span>
-                </div>
-                <p className="text-xs text-indigo-400 mb-3">Рефлексия сохранится в дневнике — открой любой день в Ленте</p>
-                <button
-                  onClick={() => navigate('/evening')}
-                  className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-sm cursor-pointer hover:bg-indigo-600 transition-colors"
-                >
-                  {hour < 18 ? 'Написать →' : 'Написать о дне →'}
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* ═══ Three Pulse Cards + Panel ═══ */}
-        <div className="space-y-2">
-          {/* Compact pulse row */}
-          <div className="grid grid-cols-3 gap-2">
-            {/* Активность */}
-            <button
-              onClick={() => setActivePanel(activePanel === 'activity' ? null : 'activity')}
-              className="rounded-2xl border p-3 text-left flex flex-col gap-1.5 transition-all cursor-pointer"
-              style={activePanel === 'activity'
-                ? { backgroundColor: 'rgba(194,105,42,0.07)', borderColor: 'rgba(194,105,42,0.4)' }
-                : { backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' }}
-            >
-              <div className="flex items-start justify-between">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: 'rgba(194,105,42,0.12)' }}>
-                  {activeActivities.length > 0 ? (activities.find(a => a.id === activeActivities[0])?.emoji ?? '💼') : '💼'}
-                </div>
-                {activeActivities.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse mt-0.5" />}
+        {/* ─── Hero tile: MoodRing + state + quick actions ─── */}
+        <div style={{ background: 'white', borderRadius: 18, padding: 16, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div style={{ position: 'relative', width: 72, height: 72, flexShrink: 0 }}>
+              <MoodRing mood={today.mood} size={72} strokeWidth={7} />
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: 18, fontWeight: 700, color: MOOD_COLORS[today.mood] }}>{today.mood}</span>
               </div>
-              <div>
-                <p className="text-xs font-medium text-foreground">Активность</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-                  {activeActivities.length > 0 ? `${activeActivities.length} идёт` : 'Не начата'}
-                </p>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#1C1917', marginBottom: 4 }}>{MOOD_LABELS[today.mood]}</div>
+              <div style={{ display: 'flex', gap: 12, marginBottom: totalMinutes > 0 ? 6 : 0 }}>
+                <span style={{ fontSize: 12, color: '#78716C' }}>⚡ {today.energy}/10</span>
+                {totalMinutes > 0 && <span style={{ fontSize: 12, color: '#78716C' }}>⏱ {Math.floor(totalMinutes / 60)}ч {totalMinutes % 60}м</span>}
               </div>
-            </button>
-
-            {/* Состояние */}
-            <button
-              onClick={() => setActivePanel(activePanel === 'state' ? null : 'state')}
-              className="rounded-2xl border p-3 text-left flex flex-col gap-1.5 transition-all cursor-pointer"
-              style={activePanel === 'state'
-                ? { backgroundColor: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.35)' }
-                : { backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' }}
-            >
-              <div className="flex items-start justify-between">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: 'rgba(59,130,246,0.10)' }}>
-                  {today.mood >= 8 ? '😊' : today.mood >= 5 ? '😐' : '😔'}
-                </div>
-                <span className="text-[11px] font-semibold mt-0.5" style={{ color: MOOD_COLORS[today.mood] }}>{today.mood}</span>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-foreground">Состояние</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{MOOD_LABELS[today.mood]}</p>
-              </div>
-            </button>
-
-            {/* События */}
-            <button
-              onClick={() => setActivePanel(activePanel === 'events' ? null : 'events')}
-              className="rounded-2xl border p-3 text-left flex flex-col gap-1.5 transition-all cursor-pointer"
-              style={activePanel === 'events'
-                ? { backgroundColor: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.35)' }
-                : { backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' }}
-            >
-              <div className="flex items-start justify-between">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: 'rgba(245,158,11,0.10)' }}>
-                  {today.events.length > 0 ? (events.find(e => e.id === today.events[0]?.eventId)?.emoji ?? '⚡') : '⚡'}
-                </div>
-                <span className="text-[11px] font-medium text-muted-foreground mt-0.5">{today.events.length || '—'}</span>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-foreground">События</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {today.events.length > 0 ? `${today.events.length} отмечено` : 'Нет'}
-                </p>
-              </div>
-            </button>
-          </div>
-
-          {/* Expanded panel */}
-          <AnimatePresence>
-            {activePanel && (
-              <motion.div
-                key={activePanel}
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="bg-card rounded-2xl border border-border overflow-hidden">
-                  {/* ── Activity Panel ── */}
-                  {activePanel === 'activity' && (
-                    <div className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs text-muted-foreground">
-                          {activeActivities.length > 0 ? 'Добавить ещё активность' : 'Начать активность'}
-                        </p>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setGridEditMode(!gridEditMode); }}
-                          className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent"
-                        >
-                          {gridEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
-                        </button>
-                      </div>
-                      {gridEditMode && (
-                        <p className="text-xs text-muted-foreground mb-2">Перетаскивайте или нажмите для редактирования</p>
-                      )}
-                      <DraggableActivityGrid
-                        activities={activities}
-                        activeActivities={activeActivities}
-                        editMode={gridEditMode}
-                        onToggle={handleToggle}
-                        onReorder={reorderActivities}
-                        onDelete={deleteActivityType}
-                        onEdit={(act) => { setSheetActivity(act); setSheetOpen(true); }}
-                        onAdd={() => { setSheetActivity(null); setSheetOpen(true); }}
-                      />
-                    </div>
-                  )}
-
-                  {/* ── State Panel ── */}
-                  {activePanel === 'state' && (
-                    <div className="px-4 pb-4 pt-4 space-y-4">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs text-muted-foreground">Настроение</span>
-                          <span className="text-sm" style={{ color: MOOD_COLORS[tempMood] }}>{tempMood} — {MOOD_LABELS[tempMood]}</span>
-                        </div>
-                        <div className="flex gap-1">
-                          {Array.from({ length: 11 }, (_, i) => (
-                            <button key={i} onClick={() => setTempMood(i)} className="flex-1 rounded-md transition-all cursor-pointer" style={{ height: `${14 + i * 2}px`, backgroundColor: i <= tempMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= tempMood ? 1 : 0.35 }} />
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs text-muted-foreground">Энергия</span>
-                          <span className="text-sm" style={{ color: '#eab308' }}>{tempEnergy}/10</span>
-                        </div>
-                        <div className="flex gap-1">
-                          {Array.from({ length: 11 }, (_, i) => (
-                            <button key={i} onClick={() => setTempEnergy(i)} className="flex-1 rounded-md transition-all cursor-pointer" style={{ height: `${14 + i * 2}px`, backgroundColor: i <= tempEnergy ? '#eab308' : '#e5e7eb', opacity: i <= tempEnergy ? 1 : 0.35 }} />
-                          ))}
-                        </div>
-                      </div>
-                      <input
-                        type="text"
-                        value={tempComment}
-                        onChange={(e) => setTempComment(e.target.value)}
-                        placeholder="Заметка..."
-                        className="w-full text-sm px-3 py-2 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20"
-                      />
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1.5">Что вызвало изменение?</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {([
-                            { id: 'work', label: '💼 Работа' },
-                            { id: 'rest', label: '😴 Отдых' },
-                            { id: 'social', label: '👥 Общение' },
-                            { id: 'physical', label: '🏃 Физическое' },
-                            { id: 'event', label: '⚡ Событие' },
-                            { id: 'spontaneous', label: '✨ Само по себе' },
-                          ] as { id: MoodSnapshot['trigger']; label: string }[]).map((t) => (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => setTempTrigger(tempTrigger === t.id ? null : t.id)}
-                              className={`px-2.5 py-1 rounded-lg text-xs border transition-all cursor-pointer ${
-                                tempTrigger === t.id
-                                  ? 'bg-primary/10 border-primary text-primary'
-                                  : 'border-border text-muted-foreground hover:border-primary/30'
-                              }`}
-                            >
-                              {t.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <button onClick={handleSaveState} className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm cursor-pointer hover:opacity-90 transition-opacity">Записать состояние</button>
-                    </div>
-                  )}
-
-                  {/* ── Events Panel ── */}
-                  {activePanel === 'events' && (
-                    <div>
-                      <div className="p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">События</span>
-                          {today.events.length > 0 && !eventsEditMode && (
-                            <div className="flex gap-0.5">
-                              {today.events.slice(0, 6).map((e) => {
-                                const tag = events.find((t) => t.id === e.eventId);
-                                return tag ? <span key={e.eventId} className="text-sm">{tag.emoji}</span> : null;
-                              })}
-                              {today.events.length > 6 && <span className="text-xs text-muted-foreground">+{today.events.length - 6}</span>}
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => { setEventsEditMode(!eventsEditMode); setRenamingGroupId(null); setAddingInGroup(false); }}
-                          className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent"
-                        >
-                          {eventsEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
-                        </button>
-                      </div>
-                      <div className="px-4 pb-4 space-y-3">
-                        {!eventsEditMode && (
-                          <p className="text-[10px] text-muted-foreground">Тап — отметить · Ещё тап — множитель ×2…×10 🎰 · Долгий тап — заметка</p>
-                        )}
-                        {(() => {
-                          const ungrouped = events.filter((t) => !t.groupId);
-                          if (ungrouped.length === 0 && !eventsEditMode) return null;
-                          return (
-                            <div className="flex flex-wrap gap-2">
-                              {ungrouped.map((tag) => renderEventChip(tag))}
-                              {eventsEditMode && (
-                                <button
-                                  onClick={() => { setAddingInGroup('__ungrouped__'); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
-                                  className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })()}
-                        {eventGroups.map((group, groupIdx) => {
-                          const groupEvents = events.filter((t) => t.groupId === group.id);
-                          const isRenaming = renamingGroupId === group.id;
-                          return (
-                            <div key={group.id} className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <div className="h-px flex-1 bg-border" />
-                                {isRenaming ? (
-                                  <input
-                                    autoFocus
-                                    value={editGroupLabel}
-                                    onChange={(e) => setEditGroupLabel(e.target.value)}
-                                    onBlur={() => { if (editGroupLabel.trim()) updateEventGroup(group.id, editGroupLabel.trim()); setRenamingGroupId(null); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenamingGroupId(null); }}
-                                    className="text-[11px] px-2 py-0.5 rounded bg-accent/60 border-0 outline-none w-28 text-center"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() => { if (eventsEditMode) { setRenamingGroupId(group.id); setEditGroupLabel(group.label); } }}
-                                    className={`text-[11px] text-muted-foreground px-1 flex items-center gap-1 ${eventsEditMode ? 'cursor-pointer hover:text-foreground' : ''}`}
-                                  >
-                                    {group.label}
-                                    {eventsEditMode && <Pencil className="w-2.5 h-2.5 opacity-40" />}
-                                  </span>
-                                )}
-                                <div className="h-px flex-1 bg-border" />
-                                {eventsEditMode && (
-                                  <div className="flex items-center gap-0.5 shrink-0">
-                                    <button onClick={() => reorderEventGroups(groupIdx, groupIdx - 1)} disabled={groupIdx === 0} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20">
-                                      <ChevronUp className="w-3 h-3" />
-                                    </button>
-                                    <button onClick={() => reorderEventGroups(groupIdx, groupIdx + 1)} disabled={groupIdx === eventGroups.length - 1} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20">
-                                      <ChevronDown className="w-3 h-3" />
-                                    </button>
-                                    <button onClick={() => deleteEventGroup(group.id)} className="p-0.5 rounded cursor-pointer text-muted-foreground/30 hover:text-red-500 transition-colors">
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {groupEvents.map((tag) => renderEventChip(tag))}
-                                {eventsEditMode && (
-                                  <button
-                                    onClick={() => { setAddingInGroup(group.id); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
-                                    className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        <AnimatePresence>
-                          {addingInGroup !== false && (
-                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-                              <div className="p-3 rounded-xl bg-accent/50 space-y-2.5">
-                                <p className="text-[10px] text-muted-foreground">Новое событие</p>
-                                <div className="flex gap-3 items-center">
-                                  <button
-                                    onClick={() => setShowEventEmojiPicker(!showEventEmojiPicker)}
-                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer border-2 border-primary/20 bg-card text-xl hover:scale-105 transition-transform"
-                                  >
-                                    {newEventEmoji || '?'}
-                                  </button>
-                                  <input
-                                    autoFocus
-                                    type="text"
-                                    value={newEventLabel}
-                                    onChange={(e) => setNewEventLabel(e.target.value)}
-                                    placeholder="Название"
-                                    className="w-full text-sm px-3 py-2 rounded-lg bg-card border-0 outline-none focus:ring-1 focus:ring-primary/20"
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter' && newEventEmoji && newEventLabel.trim()) {
-                                        addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string });
-                                        setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false);
-                                      }
-                                    }}
-                                  />
-                                </div>
-                                {showEventEmojiPicker && (
-                                  <div className="grid grid-cols-10 gap-1 p-2 bg-card rounded-xl">
-                                    {EVENT_EMOJIS.map((e) => (
-                                      <button key={e} onClick={() => { setNewEventEmoji(e); setShowEventEmojiPicker(false); }} className={`w-7 h-7 rounded-lg flex items-center justify-center text-base cursor-pointer transition-all ${newEventEmoji === e ? 'bg-primary/10 scale-110' : 'hover:bg-accent'}`}>{e}</button>
-                                    ))}
-                                  </div>
-                                )}
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => {
-                                      if (newEventEmoji && newEventLabel.trim()) {
-                                        addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string });
-                                        setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false); setShowEventEmojiPicker(false);
-                                      }
-                                    }}
-                                    disabled={!newEventEmoji || !newEventLabel.trim()}
-                                    className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs cursor-pointer disabled:opacity-40 hover:opacity-90 transition-opacity"
-                                  >Добавить</button>
-                                  <button
-                                    onClick={() => { setAddingInGroup(false); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
-                                    className="px-3 py-2 rounded-lg bg-card text-muted-foreground text-xs cursor-pointer hover:bg-accent"
-                                  >Отмена</button>
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                        {eventsEditMode && (
-                          <button
-                            onClick={() => addEventGroup('Новая группа')}
-                            className="w-full py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-primary/60 cursor-pointer transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            <Plus className="w-3.5 h-3.5" />Добавить группу
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* ═══ Activity Bottom Sheet ═══ */}
-        <ActivityBottomSheet
-          open={sheetOpen}
-          activity={sheetActivity}
-          onClose={() => setSheetOpen(false)}
-          onSave={(data) => {
-            if (sheetActivity) {
-              updateActivity(sheetActivity.id, data);
-            } else {
-              addActivity(data);
-            }
-            setSheetOpen(false);
-          }}
-          onDelete={sheetActivity ? () => { deleteActivityType(sheetActivity.id); setSheetOpen(false); } : undefined}
-        />
-
-        {/* ═══ Events (legacy — now inside Three Pulse Cards Panel) ═══ */}
-        <div className="hidden">
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">События</span>
-              {today.events.length > 0 && !eventsEditMode && (
-                <div className="flex gap-0.5">
-                  {today.events.slice(0, 6).map((e) => {
-                    const tag = events.find((t) => t.id === e.eventId);
-                    return tag ? <span key={e.eventId} className="text-sm">{tag.emoji}</span> : null;
-                  })}
-                  {today.events.length > 6 && <span className="text-xs text-muted-foreground">+{today.events.length - 6}</span>}
+              {totalMinutes > 0 && (
+                <div style={{ height: 5, borderRadius: 3, overflow: 'hidden', display: 'flex', gap: 1 }}>
+                  {timelineStats.map((s) => (
+                    <div key={s.id} style={{ flex: s.mins, background: s.act!.color, borderRadius: 2 }} />
+                  ))}
                 </div>
               )}
             </div>
-            <button
-              onClick={() => { setEventsEditMode(!eventsEditMode); setRenamingGroupId(null); setAddingInGroup(false); }}
-              className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent"
-            >
-              {eventsEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
-            </button>
           </div>
 
-          <div className="px-4 pb-4 space-y-3">
-            {!eventsEditMode && (
-              <p className="text-[10px] text-muted-foreground">Тап — отметить · Ещё тап — множитель ×2…×10 🎰 · Долгий тап — заметка</p>
+          {/* Active entries */}
+          <AnimatePresence>
+            {activeEntries.length > 0 && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                <div style={{ borderTop: '1px solid rgba(0,0,0,0.07)', marginTop: 12, paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {activeEntries.map(({ entry, actInfo }) => {
+                    const isCommenting = commentingEntry === entry.id;
+                    const hasComment = !!entry.comment;
+                    return (
+                      <motion.div key={entry.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} layout>
+                        <div className="rounded-xl px-3 py-2.5 flex items-center gap-2.5" style={{ backgroundColor: `${actInfo.color}12`, borderLeft: `3px solid ${actInfo.color}` }}>
+                          <span className="text-lg">{actInfo.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm" style={{ color: actInfo.color }}>{actInfo.label}</span>
+                              <span className="text-xs text-muted-foreground">· с {entry.startTime}</span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                            </div>
+                            {hasComment && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{entry.comment}</p>}
+                          </div>
+                          <button onClick={() => setCommentingEntry(isCommenting ? null : entry.id)} className="p-1.5 rounded-lg cursor-pointer transition-colors" style={{ color: hasComment ? actInfo.color : '#a1a1aa', backgroundColor: isCommenting ? `${actInfo.color}15` : 'transparent' }}>
+                            <MessageCircle className="w-4 h-4" style={hasComment ? { fill: `${actInfo.color}30` } : undefined} />
+                          </button>
+                          <button onClick={() => toggleActivity(actInfo.id)} className="p-1.5 rounded-lg cursor-pointer hover:bg-black/5 transition-colors">
+                            <X className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                        <AnimatePresence>
+                          {isCommenting && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                              <div className="flex gap-2 mt-1 px-1">
+                                <input ref={commentRef} defaultValue={entry.comment || ''} placeholder="Заметка..." className="flex-1 text-sm px-3 py-2 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20" onKeyDown={(e) => { if (e.key === 'Enter') handleSaveComment(entry.id, (e.target as HTMLInputElement).value); if (e.key === 'Escape') setCommentingEntry(null); }} onBlur={(e) => handleSaveComment(entry.id, e.target.value)} />
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        <AnimatePresence>
+                          {justStarted === actInfo.id && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                              <div className="flex items-center gap-1 mt-1 px-1">
+                                <span className="text-[10px] text-muted-foreground shrink-0">Начал раньше?</span>
+                                {[-60, -30, -15, -5].map((m) => (
+                                  <button key={m} onClick={() => handleTimeShift(actInfo.id, m)} className="flex-1 py-1 rounded-md text-[10px] cursor-pointer transition-colors" style={{ backgroundColor: `${actInfo.color}10`, color: actInfo.color }}>{m}м</button>
+                                ))}
+                                <button onClick={() => setJustStarted(null)} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground"><X className="w-3 h-3" /></button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </motion.div>
             )}
+          </AnimatePresence>
 
-            {/* Ungrouped events */}
-            {(() => {
-              const ungrouped = events.filter((t) => !t.groupId);
-              if (ungrouped.length === 0 && !eventsEditMode) return null;
-              return (
-                <div className="flex flex-wrap gap-2">
-                  {ungrouped.map((tag) => renderEventChip(tag))}
+          {/* Quick actions row */}
+          <div style={{ borderTop: '1px solid rgba(0,0,0,0.07)', marginTop: 14, display: 'flex' }}>
+            {[
+              { icon: '😊', label: 'Состояние', action: () => setMomentSheetOpen(true) },
+              { icon: '⚡', label: 'События', action: () => setActivePanel(activePanel === 'events' ? null : 'events') },
+              { icon: '🌙', label: 'Вечер', action: () => navigate('/evening') },
+            ].map((item, i) => (
+              <button key={i} onClick={item.action} style={{ flex: 1, padding: '12px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, border: 'none', background: 'transparent', cursor: 'pointer', borderRight: i < 2 ? '1px solid rgba(0,0,0,0.07)' : 'none' }}>
+                <span style={{ fontSize: 18 }}>{item.icon}</span>
+                <span style={{ fontSize: 10, color: '#78716C' }}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ─── Events panel (expandable) ─── */}
+        <AnimatePresence>
+          {activePanel === 'events' && (
+            <motion.div key="events" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+              <div style={{ background: 'white', borderRadius: 18 }}>
+                <div className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">События</span>
+                    {today.events.length > 0 && !eventsEditMode && (
+                      <div className="flex gap-0.5">
+                        {today.events.slice(0, 6).map((e) => {
+                          const tag = events.find((t) => t.id === e.eventId);
+                          return tag ? <span key={e.eventId} className="text-sm">{tag.emoji}</span> : null;
+                        })}
+                        {today.events.length > 6 && <span className="text-xs text-muted-foreground">+{today.events.length - 6}</span>}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => { setEventsEditMode(!eventsEditMode); setRenamingGroupId(null); setAddingInGroup(false); }} className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-accent">
+                    {eventsEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
+                  </button>
+                </div>
+                <div className="px-4 pb-4 space-y-3">
+                  {!eventsEditMode && <p className="text-[10px] text-muted-foreground">Тап — отметить · интенсивность</p>}
+                  {(() => {
+                    const ungrouped = events.filter((t) => !t.groupId);
+                    if (ungrouped.length === 0 && !eventsEditMode) return null;
+                    return (
+                      <div className="flex flex-wrap gap-2">
+                        {ungrouped.map((tag) => renderEventChip(tag))}
+                        {eventsEditMode && (
+                          <button onClick={() => { setAddingInGroup('__ungrouped__'); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }} className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"><Plus className="w-3 h-3" /></button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {eventGroups.map((group, groupIdx) => {
+                    const groupEvents = events.filter((t) => t.groupId === group.id);
+                    const isRenaming = renamingGroupId === group.id;
+                    return (
+                      <div key={group.id} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-px flex-1 bg-border" />
+                          {isRenaming ? (
+                            <input autoFocus value={editGroupLabel} onChange={(e) => setEditGroupLabel(e.target.value)} onBlur={() => { if (editGroupLabel.trim()) updateEventGroup(group.id, editGroupLabel.trim()); setRenamingGroupId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenamingGroupId(null); }} className="text-[11px] px-2 py-0.5 rounded bg-accent/60 border-0 outline-none w-28 text-center" />
+                          ) : (
+                            <span onClick={() => { if (eventsEditMode) { setRenamingGroupId(group.id); setEditGroupLabel(group.label); } }} className={`text-[11px] text-muted-foreground px-1 flex items-center gap-1 ${eventsEditMode ? 'cursor-pointer hover:text-foreground' : ''}`}>
+                              {group.label}
+                              {eventsEditMode && <Pencil className="w-2.5 h-2.5 opacity-40" />}
+                            </span>
+                          )}
+                          <div className="h-px flex-1 bg-border" />
+                          {eventsEditMode && (
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button onClick={() => reorderEventGroups(groupIdx, groupIdx - 1)} disabled={groupIdx === 0} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20"><ChevronUp className="w-3 h-3" /></button>
+                              <button onClick={() => reorderEventGroups(groupIdx, groupIdx + 1)} disabled={groupIdx === eventGroups.length - 1} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20"><ChevronDown className="w-3 h-3" /></button>
+                              <button onClick={() => deleteEventGroup(group.id)} className="p-0.5 rounded cursor-pointer text-muted-foreground/30 hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {groupEvents.map((tag) => renderEventChip(tag))}
+                          {eventsEditMode && (
+                            <button onClick={() => { setAddingInGroup(group.id); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }} className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"><Plus className="w-3 h-3" /></button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <AnimatePresence>
+                    {addingInGroup !== false && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                        <div className="p-3 rounded-xl bg-accent/50 space-y-2.5">
+                          <p className="text-[10px] text-muted-foreground">Новое событие</p>
+                          <div className="flex gap-3 items-center">
+                            <button onClick={() => setShowEventEmojiPicker(!showEventEmojiPicker)} className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer border-2 border-primary/20 bg-card text-xl hover:scale-105 transition-transform">{newEventEmoji || '?'}</button>
+                            <input autoFocus type="text" value={newEventLabel} onChange={(e) => setNewEventLabel(e.target.value)} placeholder="Название" className="w-full text-sm px-3 py-2 rounded-lg bg-card border-0 outline-none focus:ring-1 focus:ring-primary/20" onKeyDown={(e) => { if (e.key === 'Enter' && newEventEmoji && newEventLabel.trim()) { addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string }); setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false); } }} />
+                          </div>
+                          {showEventEmojiPicker && (
+                            <div className="grid grid-cols-10 gap-1 p-2 bg-card rounded-xl">
+                              {EVENT_EMOJIS.map((e) => (
+                                <button key={e} onClick={() => { setNewEventEmoji(e); setShowEventEmojiPicker(false); }} className={`w-7 h-7 rounded-lg flex items-center justify-center text-base cursor-pointer transition-all ${newEventEmoji === e ? 'bg-primary/10 scale-110' : 'hover:bg-accent'}`}>{e}</button>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <button onClick={() => { if (newEventEmoji && newEventLabel.trim()) { addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string }); setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false); setShowEventEmojiPicker(false); } }} disabled={!newEventEmoji || !newEventLabel.trim()} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs cursor-pointer disabled:opacity-40 hover:opacity-90 transition-opacity">Добавить</button>
+                            <button onClick={() => { setAddingInGroup(false); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }} className="px-3 py-2 rounded-lg bg-card text-muted-foreground text-xs cursor-pointer hover:bg-accent">Отмена</button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   {eventsEditMode && (
-                    <button
-                      onClick={() => { setAddingInGroup('__ungrouped__'); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
-                      className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
+                    <button onClick={() => addEventGroup('Новая группа')} className="w-full py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-primary/60 cursor-pointer transition-colors flex items-center justify-center gap-1.5">
+                      <Plus className="w-3.5 h-3.5" />Добавить группу
                     </button>
                   )}
                 </div>
-              );
-            })()}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            {/* Named groups */}
-            {eventGroups.map((group, groupIdx) => {
-              const groupEvents = events.filter((t) => t.groupId === group.id);
-              const isRenaming = renamingGroupId === group.id;
+        {/* ─── Activity section ─── */}
+        <div style={{ background: 'white', borderRadius: 18, padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#1C1917' }}>Чем занят</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {activeActivities.length > 0 && <span style={{ fontSize: 12, color: '#C2692A', fontWeight: 500 }}>{activeActivities.length} активны</span>}
+              <button onClick={() => setGridEditMode(!gridEditMode)} style={{ padding: 6, borderRadius: 8, cursor: 'pointer', background: 'transparent', border: 'none' }}>
+                {gridEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
+              </button>
+            </div>
+          </div>
+          {gridEditMode && <p className="text-xs text-muted-foreground mb-2">Перетаскивайте или нажмите для редактирования</p>}
+          <DraggableActivityGrid
+            activities={activities}
+            activeActivities={activeActivities}
+            editMode={gridEditMode}
+            onToggle={handleToggle}
+            onReorder={reorderActivities}
+            onDelete={deleteActivityType}
+            onEdit={(act) => { setSheetActivity(act); setSheetOpen(true); }}
+            onAdd={() => { setSheetActivity(null); setSheetOpen(true); }}
+          />
+        </div>
 
-              return (
-                <div key={group.id} className="space-y-2">
-                  {/* Divider with label */}
-                  <div className="flex items-center gap-2">
-                    <div className="h-px flex-1 bg-border" />
-                    {isRenaming ? (
-                      <input
-                        autoFocus
-                        value={editGroupLabel}
-                        onChange={(e) => setEditGroupLabel(e.target.value)}
-                        onBlur={() => { if (editGroupLabel.trim()) updateEventGroup(group.id, editGroupLabel.trim()); setRenamingGroupId(null); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenamingGroupId(null); }}
-                        className="text-[11px] px-2 py-0.5 rounded bg-accent/60 border-0 outline-none w-28 text-center"
-                      />
-                    ) : (
-                      <span
-                        onClick={() => { if (eventsEditMode) { setRenamingGroupId(group.id); setEditGroupLabel(group.label); } }}
-                        className={`text-[11px] text-muted-foreground px-1 flex items-center gap-1 ${eventsEditMode ? 'cursor-pointer hover:text-foreground' : ''}`}
-                      >
-                        {group.label}
-                        {eventsEditMode && <Pencil className="w-2.5 h-2.5 opacity-40" />}
-                      </span>
-                    )}
-                    <div className="h-px flex-1 bg-border" />
-                    {eventsEditMode && (
-                      <div className="flex items-center gap-0.5 shrink-0">
-                        <button onClick={() => reorderEventGroups(groupIdx, groupIdx - 1)} disabled={groupIdx === 0} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20">
-                          <ChevronUp className="w-3 h-3" />
-                        </button>
-                        <button onClick={() => reorderEventGroups(groupIdx, groupIdx + 1)} disabled={groupIdx === eventGroups.length - 1} className="p-0.5 rounded cursor-pointer text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20">
-                          <ChevronDown className="w-3 h-3" />
-                        </button>
-                        <button onClick={() => deleteEventGroup(group.id)} className="p-0.5 rounded cursor-pointer text-muted-foreground/30 hover:text-red-500 transition-colors">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+        {/* ─── Black CTA ─── */}
+        <button
+          onClick={() => isEvening ? navigate('/evening') : setMomentSheetOpen(true)}
+          style={{ width: '100%', padding: '16px 18px', borderRadius: 18, background: '#1C1917', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: 15, fontWeight: 600, fontFamily: 'DM Sans, sans-serif' }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 28, height: 28, borderRadius: '50%', background: '#C2692A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'white' }}>{isEvening ? '🌙' : '+'}</span>
+            {isEvening ? 'Вечерний ритуал' : 'Снимок состояния'}
+          </span>
+          <span style={{ color: '#C2692A', fontSize: 18, fontWeight: 700 }}>›</span>
+        </button>
 
-                  {/* Events in group */}
-                  <div className="flex flex-wrap gap-2">
-                    {groupEvents.map((tag) => renderEventChip(tag))}
-                    {eventsEditMode && (
-                      <button
-                        onClick={() => { setAddingInGroup(group.id); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
-                        className="px-3 py-1.5 rounded-full text-xs border border-dashed border-primary/30 text-primary/50 hover:border-primary hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Inline add-event form */}
+        {/* ─── Completed timeline (collapsible) ─── */}
+        {feedItems.length > 0 && (
+          <div style={{ background: 'white', borderRadius: 18, overflow: 'hidden' }}>
+            <button
+              onClick={() => setShowTimeline(!showTimeline)}
+              style={{ width: '100%', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: 'none', background: 'transparent', cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 500, color: '#1C1917' }}>История дня</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {totalMinutes > 0 && <span style={{ fontSize: 11, color: '#78716C' }}>{totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}ч${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}м` : ''}` : `${totalMinutes}м`}</span>}
+                {showTimeline ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </div>
+            </button>
             <AnimatePresence>
-              {addingInGroup !== false && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-                  <div className="p-3 rounded-xl bg-accent/50 space-y-2.5">
-                    <p className="text-[10px] text-muted-foreground">Новое событие</p>
-                    <div className="flex gap-3 items-center">
-                      <button
-                        onClick={() => setShowEventEmojiPicker(!showEventEmojiPicker)}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer border-2 border-primary/20 bg-card text-xl hover:scale-105 transition-transform"
-                      >
-                        {newEventEmoji || '?'}
-                      </button>
-                      <input
-                        autoFocus
-                        type="text"
-                        value={newEventLabel}
-                        onChange={(e) => setNewEventLabel(e.target.value)}
-                        placeholder="Название"
-                        className="w-full text-sm px-3 py-2 rounded-lg bg-card border-0 outline-none focus:ring-1 focus:ring-primary/20"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && newEventEmoji && newEventLabel.trim()) {
-                            addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string });
-                            setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false);
-                          }
-                        }}
-                      />
-                    </div>
-                    {showEventEmojiPicker && (
-                      <div className="grid grid-cols-10 gap-1 p-2 bg-card rounded-xl">
-                        {EVENT_EMOJIS.map((e) => (
-                          <button key={e} onClick={() => { setNewEventEmoji(e); setShowEventEmojiPicker(false); }} className={`w-7 h-7 rounded-lg flex items-center justify-center text-base cursor-pointer transition-all ${newEventEmoji === e ? 'bg-primary/10 scale-110' : 'hover:bg-accent'}`}>{e}</button>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          if (newEventEmoji && newEventLabel.trim()) {
-                            addEvent({ emoji: newEventEmoji, label: newEventLabel.trim(), groupId: addingInGroup === '__ungrouped__' ? undefined : addingInGroup as string });
-                            setNewEventEmoji(''); setNewEventLabel(''); setAddingInGroup(false); setShowEventEmojiPicker(false);
-                          }
-                        }}
-                        disabled={!newEventEmoji || !newEventLabel.trim()}
-                        className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs cursor-pointer disabled:opacity-40 hover:opacity-90 transition-opacity"
-                      >Добавить</button>
-                      <button
-                        onClick={() => { setAddingInGroup(false); setNewEventEmoji(''); setNewEventLabel(''); setShowEventEmojiPicker(false); }}
-                        className="px-3 py-2 rounded-lg bg-card text-muted-foreground text-xs cursor-pointer hover:bg-accent"
-                      >Отмена</button>
-                    </div>
+              {showTimeline && (
+                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+                  <div className="px-2 pb-2">
+                    {(() => {
+                      const result: JSX.Element[] = [];
+                      let lastPeriod: string | null = null;
+                      feedItems.forEach((item, idx) => {
+                        const period = getTimePeriod(item.time);
+                        if (period !== lastPeriod) {
+                          result.push(
+                            <div key={`anchor-${period}-${idx}`} className="flex items-center gap-2 my-2 px-2">
+                              <div className="h-px flex-1 bg-border" />
+                              <span className="text-[10px] text-muted-foreground">{PERIOD_LABELS[period]}</span>
+                              <div className="h-px flex-1 bg-border" />
+                            </div>
+                          );
+                          lastPeriod = period;
+                        }
+                        if (item.kind === 'activity') {
+                          const { entry, act } = item;
+                          const isEditing = editingEntry === entry.id;
+                          const duration = formatDuration(entry.startTime, entry.endTime);
+                          result.push(
+                            <div key={entry.id}>
+                              <button onClick={() => setEditingEntry(isEditing ? null : entry.id)} className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left transition-colors hover:bg-accent/50" style={{ backgroundColor: isEditing ? `${act.color}12` : `${act.color}06`, borderLeft: `3px solid ${act.color}` }}>
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${act.color}15` }}><span className="text-base">{act.emoji}</span></div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm leading-tight" style={{ color: act.color }}>{act.label}</p>
+                                  <p className="text-[11px] text-muted-foreground">{entry.startTime}–{entry.endTime}</p>
+                                  {entry.comment && <p className="text-[11px] text-muted-foreground truncate">{entry.comment}</p>}
+                                </div>
+                                <span className="text-xs text-muted-foreground tabular-nums shrink-0">{duration}</span>
+                              </button>
+                              <AnimatePresence>
+                                {isEditing && (
+                                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                                    <div className="py-2 px-2 space-y-2.5">
+                                      <input defaultValue={entry.comment || ''} placeholder="Заметка..." className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/40 border-0 outline-none" onBlur={(e) => handleSaveComment(entry.id, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-muted-foreground/50" /><span className="text-[10px] text-muted-foreground">Начало: {entry.startTime}</span></div>
+                                        <div className="flex gap-0.5">
+                                          {[-30, -5, -1].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'startTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">{m}м</button>))}
+                                          {[1, 5, 30].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'startTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">+{m}м</button>))}
+                                        </div>
+                                      </div>
+                                      {entry.endTime && (
+                                        <div className="space-y-1">
+                                          <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-muted-foreground/50" /><span className="text-[10px] text-muted-foreground">Конец: {entry.endTime}</span></div>
+                                          <div className="flex gap-0.5">
+                                            {[-30, -5, -1].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'endTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">{m}м</button>))}
+                                            <button onClick={() => handleSetNow(entry.id, 'endTime')} className="flex-1 py-1 rounded text-[10px] cursor-pointer" style={{ backgroundColor: `${act.color}15`, color: act.color }}>Сейч</button>
+                                            {[1, 5, 30].map((m) => (<button key={m} onClick={() => handleTimeAdjust(entry.id, 'endTime', m)} className="flex-1 py-1 rounded text-[10px] bg-accent text-muted-foreground cursor-pointer hover:bg-accent/80">+{m}м</button>))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground mb-1 block">Сменить</span>
+                                        <div className="flex flex-wrap gap-1">
+                                          {activities.filter((a) => a.id !== entry.activityId).slice(0, 10).map((a) => (
+                                            <button key={a.id} onClick={() => handleChangeEntryActivity(entry.id, a.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: `${a.color}12` }} title={a.label}><span className="text-xs">{a.emoji}</span></button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-1.5">
+                                        <button onClick={() => { deleteActivityEntry(entry.id); setEditingEntry(null); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"><Trash2 className="w-3 h-3" />Удалить</button>
+                                        <button onClick={() => setEditingEntry(null)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"><X className="w-3 h-3" />Закрыть</button>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          );
+                        } else {
+                          const { snap } = item;
+                          const isSelected = editingSnapshotId === snap.id;
+                          result.push(
+                            <div key={snap.id}>
+                              <button onClick={() => isSelected ? setEditingSnapshotId(null) : handleEditSnapshot(snap.id)} className="w-full flex items-center gap-3 py-2 px-2 rounded-xl cursor-pointer text-left hover:bg-accent/50" style={{ backgroundColor: isSelected ? `${MOOD_COLORS[snap.mood]}10` : undefined }}>
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shrink-0 relative" style={{ backgroundColor: MOOD_COLORS[snap.mood] }}>
+                                  {snap.mood}
+                                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card" style={{ backgroundColor: '#eab308', opacity: 0.5 + snap.energy / 20 }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-sm">😊 {snap.mood}/10</span>
+                                    <span className="text-xs text-muted-foreground">· ⚡ {snap.energy}</span>
+                                    {snap.trigger && <span className="text-[10px] text-muted-foreground">· {snap.trigger}</span>}
+                                  </div>
+                                  {snap.comment && <p className="text-[11px] text-muted-foreground truncate">{snap.comment}</p>}
+                                </div>
+                                <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{snap.time}</span>
+                              </button>
+                              <AnimatePresence>
+                                {isSelected && (() => (
+                                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                                    <div className="mt-2 pt-2 px-2 border-t border-border space-y-3">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-muted-foreground">{snap.time}</span>
+                                        <div className="flex gap-1">
+                                          <button onClick={() => handleDeleteSnapshot(snap.id)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-red-500 bg-red-50 cursor-pointer hover:bg-red-100"><Trash2 className="w-3 h-3" /></button>
+                                          <button onClick={() => setEditingSnapshotId(null)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-muted-foreground bg-accent cursor-pointer hover:bg-accent/80"><X className="w-3 h-3" /></button>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                          <span className="text-[11px] text-muted-foreground">Настроение</span>
+                                          <span className="text-xs" style={{ color: MOOD_COLORS[editSnapMood] }}>{editSnapMood} — {MOOD_LABELS[editSnapMood]}</span>
+                                        </div>
+                                        <div className="flex gap-0.5">
+                                          {Array.from({ length: 11 }, (_, i) => (
+                                            <button key={i} onClick={() => setEditSnapMood(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapMood ? MOOD_COLORS[i] : '#e5e7eb', opacity: i <= editSnapMood ? 1 : 0.3 }} />
+                                          ))}
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                          <span className="text-[11px] text-muted-foreground">Энергия</span>
+                                          <span className="text-xs" style={{ color: '#eab308' }}>{editSnapEnergy}/10</span>
+                                        </div>
+                                        <div className="flex gap-0.5">
+                                          {Array.from({ length: 11 }, (_, i) => (
+                                            <button key={i} onClick={() => setEditSnapEnergy(i)} className="flex-1 rounded transition-all cursor-pointer" style={{ height: `${12 + i * 1.5}px`, backgroundColor: i <= editSnapEnergy ? '#eab308' : '#e5e7eb', opacity: i <= editSnapEnergy ? 1 : 0.3 }} />
+                                          ))}
+                                        </div>
+                                      </div>
+                                      <input type="text" value={editSnapComment} onChange={(e) => setEditSnapComment(e.target.value)} placeholder="Что повлияло? (необязательно)" className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-accent/50 border-0 outline-none focus:ring-1 focus:ring-primary/20" onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditSnapshot(); }} />
+                                      <button onClick={handleSaveEditSnapshot} className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs cursor-pointer hover:opacity-90 transition-opacity">Сохранить</button>
+                                    </div>
+                                  </motion.div>
+                                ))()}
+                              </AnimatePresence>
+                            </div>
+                          );
+                        }
+                      });
+                      return result;
+                    })()}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Add group */}
-            {eventsEditMode && (
-              <button
-                onClick={() => addEventGroup('Новая группа')}
-                className="w-full py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-primary/60 cursor-pointer transition-colors flex items-center justify-center gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" />Добавить группу
-              </button>
-            )}
           </div>
-        </div>
+        )}
 
       </div>
       </div>{/* end scroll wrapper */}
