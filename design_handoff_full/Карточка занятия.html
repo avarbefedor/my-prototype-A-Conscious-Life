@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Карточка занятия · варианты</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+body { margin:0; font-family:'DM Sans',system-ui,sans-serif; background:#E8E4DD; color:#1C1917; }
+.scroll::-webkit-scrollbar { width:0; }
+.phone {
+  width: 380px; height: 720px; background:#FAF7F2; border-radius: 32px;
+  overflow:hidden; position:relative;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 20px 40px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+.phone-inner { padding: 18px 14px 14px; height: 100%; box-sizing: border-box; overflow:hidden; position:relative; }
+.bento-bg { background:#EFEAE3; border-radius:24px; padding:10px; height:100%; box-sizing:border-box; }
+.state-pill {
+  position:absolute; top:14px; right:14px; z-index:5;
+  background: rgba(28,25,23,0.85); color:white; padding:5px 10px;
+  border-radius: 100px; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  backdrop-filter: blur(8px);
+}
+.sheet-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.35); }
+button { font-family: inherit; }
+</style>
+</head>
+<body>
+<script type="text/babel" src="design-canvas.jsx" data-presets="env,react"></script>
+<script type="text/babel" data-presets="env,react">
+const { useState } = React;
+const { DesignCanvas, DCSection, DCArtboard } = window;
+
+// ─── Палитра ────────────────────────────────────────────────────────────
+const INK = '#1C1917';
+const SUB = '#78716C';
+const CARD = '#FFFFFF';
+const TERRA = '#C2692A';
+const BG = '#FAF7F2';
+
+// ─── Данные ─────────────────────────────────────────────────────────────
+const READING = {
+  emoji: '📖', title: 'Чтение', color: '#8B6F47',
+  current: { title: 'Атомные привычки', author: 'Дж. Клир', progress: 0.62, page: 187, total: 300, cover: '#D4A574' },
+  recent: [
+    { title: 'Атомные привычки', author: 'Дж. Клир', progress: 0.62, cover: '#D4A574' },
+    { title: 'Размышления', author: 'М. Аврелий', progress: 0.34, cover: '#5C7A8A' },
+    { title: 'Тонкое искусство', author: 'М. Мэнсон', progress: 0.91, cover: '#A87B5C' },
+  ]
+};
+const TRAINING = {
+  emoji: '🏋️', title: 'Тренировка', color: '#6B8E5A',
+  types: [
+    { id:'weights', emoji:'🏋️', label:'С железом', last:'2 д назад', color:'#6B8E5A' },
+    { id:'cardio',  emoji:'🏃', label:'Кардио',     last:'5 д назад', color:'#C2692A' },
+    { id:'swim',    emoji:'🏊', label:'Плавание',  last:'нед. назад', color:'#5C8AA8' },
+    { id:'yoga',    emoji:'🧘', label:'Йога',       last:'3 д назад', color:'#9B7EBD' },
+  ]
+};
+
+// ─── Общие элементы ────────────────────────────────────────────────────
+function Phone({ state, children }) {
+  return (
+    <div className="phone">
+      {state && <div className="state-pill">{state}</div>}
+      <div className="phone-inner">{children}</div>
+    </div>
+  );
+}
+
+function Header({ title, sub }) {
+  return (
+    <div style={{padding:'4px 6px 14px'}}>
+      <div style={{fontFamily:'Fraunces,serif',fontStyle:'italic',fontSize:22,fontWeight:500,color:INK}}>{title}</div>
+      {sub && <div style={{fontSize:12,color:SUB,marginTop:2}}>{sub}</div>}
+    </div>
+  );
+}
+
+// Мини-обложка книги
+function BookCover({ color, size=44 }) {
+  return (
+    <div style={{
+      width:size*0.72, height:size, borderRadius:'2px 4px 4px 2px',
+      background:`linear-gradient(135deg, ${color}, ${color}dd)`,
+      boxShadow:`inset -2px 0 0 rgba(0,0,0,0.15), inset 1px 0 0 rgba(255,255,255,0.2), 0 1px 2px rgba(0,0,0,0.1)`,
+      position:'relative', flexShrink:0
+    }}>
+      <div style={{position:'absolute',left:size*0.08,top:size*0.12,right:size*0.12,height:1,background:'rgba(255,255,255,0.3)'}}/>
+      <div style={{position:'absolute',left:size*0.08,top:size*0.2,right:size*0.2,height:1,background:'rgba(255,255,255,0.2)'}}/>
+    </div>
+  );
+}
+
+// Соседи по бенто (для контекста)
+function BentoNeighbor({ emoji, label, color, sub }) {
+  return (
+    <div style={{background:CARD,borderRadius:18,padding:14,minHeight:110,display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
+      <div style={{width:36,height:36,borderRadius:10,background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{emoji}</div>
+      <div>
+        <div style={{fontSize:13,fontWeight:600,color:INK}}>{label}</div>
+        {sub && <div style={{fontSize:11,color:SUB,marginTop:2}}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ВАРИАНТ A — Inline expand (раскрытие внутри карточки)
+// ═══════════════════════════════════════════════════════════════════════
+function VariantA() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Phone state={open ? 'раскрыта' : 'свёрнута'}>
+      <Header title="Сегодня" sub="Выбери занятие" />
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <BentoNeighbor emoji="🧘" label="Медитация" color="#9B7EBD" sub="10 мин"/>
+        <BentoNeighbor emoji="🚶" label="Прогулка" color="#5C8AA8" sub="~30 мин"/>
+      </div>
+
+      {/* Карточка тренировки — раскрывается inline */}
+      <div
+        onClick={()=>setOpen(o=>!o)}
+        style={{
+          background:CARD,borderRadius:18,padding:14,marginTop:8,
+          cursor:'pointer',transition:'all 0.3s ease',
+          gridColumn:'1 / -1'
+        }}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{width:42,height:42,borderRadius:12,background:TRAINING.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{TRAINING.emoji}</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:600,color:INK}}>Тренировка</div>
+            <div style={{fontSize:11,color:SUB,marginTop:2}}>4 типа · последняя 2 д назад</div>
+          </div>
+          <div style={{
+            width:24,height:24,borderRadius:'50%',background:'#0000000a',
+            display:'flex',alignItems:'center',justifyContent:'center',
+            fontSize:14,color:SUB,
+            transform: open ? 'rotate(180deg)' : 'rotate(0)',
+            transition:'transform 0.25s ease'
+          }}>⌄</div>
+        </div>
+
+        {/* Раскрывающийся список */}
+        <div style={{
+          maxHeight: open ? 240 : 0, overflow:'hidden',
+          transition:'max-height 0.3s ease, margin-top 0.3s',
+          marginTop: open ? 12 : 0
+        }}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+            {TRAINING.types.map(t=>(
+              <div key={t.id} style={{
+                background:'#F5F0E8',borderRadius:12,padding:'10px 12px',
+                display:'flex',alignItems:'center',gap:8,cursor:'pointer'
+              }}>
+                <div style={{width:28,height:28,borderRadius:8,background:t.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>{t.emoji}</div>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontSize:12,fontWeight:500,color:INK,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.label}</div>
+                  <div style={{fontSize:10,color:SUB}}>{t.last}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}}>
+        <BentoNeighbor emoji="📖" label="Чтение" color="#8B6F47" sub="«Атомные…» · 62%"/>
+        <BentoNeighbor emoji="💧" label="Вода" color="#5C8AA8" sub="3 / 8"/>
+      </div>
+
+      <div style={{position:'absolute',bottom:14,left:14,right:14,fontSize:11,color:SUB,textAlign:'center',lineHeight:1.5}}>
+        Inline · карточка растёт на месте<br/>тапни ещё раз чтобы свернуть
+      </div>
+    </Phone>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ВАРИАНТ B — Bottom sheet picker
+// ═══════════════════════════════════════════════════════════════════════
+function VariantB() {
+  const [open, setOpen] = useState(true);
+  return (
+    <Phone state={open ? 'sheet открыт' : 'sheet закрыт'}>
+      <Header title="Сегодня" sub="Выбери занятие" />
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <BentoNeighbor emoji="🧘" label="Медитация" color="#9B7EBD" sub="10 мин"/>
+        <BentoNeighbor emoji="🚶" label="Прогулка" color="#5C8AA8" sub="~30 мин"/>
+        <div onClick={()=>setOpen(true)} style={{background:CARD,borderRadius:18,padding:14,minHeight:110,display:'flex',flexDirection:'column',justifyContent:'space-between',cursor:'pointer',position:'relative'}}>
+          <div style={{width:36,height:36,borderRadius:10,background:TRAINING.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{TRAINING.emoji}</div>
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:INK}}>Тренировка</div>
+            <div style={{fontSize:11,color:SUB,marginTop:2}}>4 типа</div>
+          </div>
+          {/* индикатор «есть варианты» */}
+          <div style={{position:'absolute',top:10,right:10,display:'flex',gap:2}}>
+            {[0,1,2,3].map(i=>(<div key={i} style={{width:4,height:4,borderRadius:'50%',background:TRAINING.color+'88'}}/>))}
+          </div>
+        </div>
+        <BentoNeighbor emoji="📖" label="Чтение" color="#8B6F47" sub="62%"/>
+      </div>
+
+      {/* Bottom sheet */}
+      {open && (
+        <>
+          <div className="sheet-backdrop" onClick={()=>setOpen(false)}/>
+          <div style={{
+            position:'absolute',left:0,right:0,bottom:0,
+            background:BG,borderRadius:'24px 24px 0 0',
+            padding:'14px 18px 20px',boxShadow:'0 -20px 40px rgba(0,0,0,0.1)',
+            animation:'slide 0.3s'
+          }}>
+            <div style={{width:38,height:4,background:'#00000020',borderRadius:2,margin:'0 auto 14px'}}/>
+            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:14}}>
+              <div style={{fontFamily:'Fraunces,serif',fontStyle:'italic',fontSize:20,fontWeight:500,color:INK}}>Какая тренировка?</div>
+              <div style={{fontSize:11,color:SUB}}>4 типа</div>
+            </div>
+            {TRAINING.types.map((t,i)=>(
+              <div key={t.id} style={{
+                display:'flex',alignItems:'center',gap:12,padding:'12px 0',
+                borderBottom:i<TRAINING.types.length-1?'1px solid #00000010':'none',cursor:'pointer'
+              }}>
+                <div style={{width:42,height:42,borderRadius:12,background:t.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{t.emoji}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:600,color:INK}}>{t.label}</div>
+                  <div style={{fontSize:11,color:SUB}}>{t.last}</div>
+                </div>
+                <div style={{fontSize:18,color:SUB}}>›</div>
+              </div>
+            ))}
+            <button style={{
+              width:'100%',marginTop:10,padding:'12px',
+              background:'transparent',border:'1px dashed #00000020',
+              borderRadius:12,fontSize:13,color:SUB,cursor:'pointer'
+            }}>＋ Добавить тип</button>
+          </div>
+        </>
+      )}
+    </Phone>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ВАРИАНТ C — Mini-grid faces (подтипы прямо на карточке)
+// ═══════════════════════════════════════════════════════════════════════
+function VariantC() {
+  return (
+    <Phone state="всё сразу видно">
+      <Header title="Сегодня" sub="Выбери занятие" />
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <BentoNeighbor emoji="🧘" label="Медитация" color="#9B7EBD" sub="10 мин"/>
+        <BentoNeighbor emoji="🚶" label="Прогулка" color="#5C8AA8" sub="~30 мин"/>
+      </div>
+
+      {/* Тренировка с мини-сеткой */}
+      <div style={{background:CARD,borderRadius:18,padding:14,marginTop:8}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:32,height:32,borderRadius:9,background:TRAINING.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>{TRAINING.emoji}</div>
+            <div style={{fontSize:14,fontWeight:600,color:INK}}>Тренировка</div>
+          </div>
+          <div style={{fontSize:10,color:SUB,textTransform:'uppercase',letterSpacing:'0.05em'}}>выбери тип</div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:6}}>
+          {TRAINING.types.map(t=>(
+            <div key={t.id} style={{
+              background:t.color+'14',borderRadius:12,padding:'10px 4px',
+              display:'flex',flexDirection:'column',alignItems:'center',gap:4,
+              cursor:'pointer',border:`1px solid ${t.color}10`
+            }}>
+              <div style={{fontSize:22}}>{t.emoji}</div>
+              <div style={{fontSize:10,fontWeight:500,color:INK,whiteSpace:'nowrap'}}>{t.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Чтение — текущая книга-обложкой */}
+      <div style={{background:CARD,borderRadius:18,padding:14,marginTop:8,display:'flex',gap:12,alignItems:'center'}}>
+        <BookCover color={READING.current.cover} size={52}/>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:11,color:SUB}}>Сейчас читаешь</div>
+          <div style={{fontSize:13,fontWeight:600,color:INK,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{READING.current.title}</div>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6}}>
+            <div style={{flex:1,height:4,background:'#0000000a',borderRadius:2,overflow:'hidden'}}>
+              <div style={{width:`${READING.current.progress*100}%`,height:'100%',background:READING.color}}/>
+            </div>
+            <span style={{fontSize:10,color:SUB,fontFamily:'JetBrains Mono'}}>{READING.current.page}/{READING.current.total}</span>
+          </div>
+        </div>
+        <div style={{fontSize:18,color:SUB}}>⋯</div>
+      </div>
+
+      <div style={{position:'absolute',bottom:14,left:14,right:14,fontSize:11,color:SUB,textAlign:'center',lineHeight:1.5}}>
+        Mini-grid · все подтипы видны без тапа<br/>один клик и поехали
+      </div>
+    </Phone>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ВАРИАНТ D — Quick-resume + switcher (продолжить последнее)
+// ═══════════════════════════════════════════════════════════════════════
+function VariantD() {
+  const [picker, setPicker] = useState(false);
+  return (
+    <Phone state={picker ? 'выбор типа' : 'продолжить последнее'}>
+      <Header title="Сегодня" sub="Продолжай в своём ритме" />
+
+      {/* Тренировка — quick-resume */}
+      <div style={{
+        background:'linear-gradient(135deg, #6B8E5A 0%, #5A7A4A 100%)',
+        borderRadius:18,padding:16,color:'white',position:'relative',overflow:'hidden'
+      }}>
+        <div style={{position:'absolute',right:-20,top:-20,fontSize:120,opacity:0.12}}>{TRAINING.emoji}</div>
+        <div style={{fontSize:11,opacity:0.8,marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em'}}>Тренировка · последняя</div>
+        <div style={{fontFamily:'Fraunces,serif',fontStyle:'italic',fontSize:22,fontWeight:500,marginBottom:14}}>С железом</div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <button style={{
+            flex:1,background:'rgba(255,255,255,0.95)',color:INK,
+            border:'none',borderRadius:12,padding:'12px',fontSize:13,fontWeight:600,
+            display:'flex',alignItems:'center',justifyContent:'center',gap:6,cursor:'pointer'
+          }}>Продолжить <span>→</span></button>
+          <button onClick={()=>setPicker(p=>!p)} style={{
+            width:44,height:44,background:'rgba(255,255,255,0.18)',
+            border:'1px solid rgba(255,255,255,0.25)',borderRadius:12,
+            color:'white',fontSize:18,cursor:'pointer',
+            display:'flex',alignItems:'center',justifyContent:'center'
+          }}>⇆</button>
+        </div>
+
+        {picker && (
+          <div style={{
+            marginTop:12,background:'rgba(0,0,0,0.18)',borderRadius:12,padding:6,
+            backdropFilter:'blur(4px)'
+          }}>
+            {TRAINING.types.map((t,i)=>(
+              <div key={t.id} style={{
+                display:'flex',alignItems:'center',gap:10,padding:'8px 10px',
+                borderRadius:8,cursor:'pointer',
+                background: i===0 ? 'rgba(255,255,255,0.12)' : 'transparent'
+              }}>
+                <div style={{fontSize:16}}>{t.emoji}</div>
+                <div style={{flex:1,fontSize:13,fontWeight:500}}>{t.label}</div>
+                <div style={{fontSize:10,opacity:0.7}}>{t.last}</div>
+                {i===0 && <div style={{width:6,height:6,borderRadius:'50%',background:'white'}}/>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Чтение — quick-resume */}
+      <div style={{background:CARD,borderRadius:18,padding:14,marginTop:8,position:'relative',overflow:'hidden'}}>
+        <div style={{display:'flex',gap:12,alignItems:'center'}}>
+          <BookCover color={READING.current.cover} size={56}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:10,color:SUB,textTransform:'uppercase',letterSpacing:'0.05em'}}>Чтение · продолжить</div>
+            <div style={{fontSize:14,fontWeight:600,color:INK,marginTop:2}}>{READING.current.title}</div>
+            <div style={{fontSize:11,color:SUB,marginTop:1}}>с. {READING.current.page} · {Math.round(READING.current.progress*100)}%</div>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:8,marginTop:12}}>
+          <button style={{flex:1,background:READING.color,color:'white',border:'none',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer'}}>Читать дальше</button>
+          <button style={{width:40,height:40,background:'#F5F0E8',border:'none',borderRadius:10,fontSize:14,color:SUB,cursor:'pointer'}}>⇆</button>
+        </div>
+      </div>
+
+      <div style={{position:'absolute',bottom:14,left:14,right:14,fontSize:11,color:SUB,textAlign:'center',lineHeight:1.5}}>
+        Quick-resume · большая кнопка = продолжить<br/>маленькая ⇆ = переключить тип
+      </div>
+    </Phone>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ВАРИАНТ E — Stacked deck (визуальная стопка)
+// ═══════════════════════════════════════════════════════════════════════
+function VariantE() {
+  const [idx, setIdx] = useState(0);
+  const t = TRAINING.types[idx];
+  return (
+    <Phone state={`карта ${idx+1} / ${TRAINING.types.length}`}>
+      <Header title="Сегодня" sub="Листай тип занятия" />
+
+      {/* Стопка карточек */}
+      <div style={{position:'relative',height:200,marginBottom:8}}>
+        {/* Задние слои */}
+        {[2,1].map(offset=>{
+          const i = (idx + offset) % TRAINING.types.length;
+          const next = TRAINING.types[i];
+          return (
+            <div key={offset} style={{
+              position:'absolute',left:offset*6,right:offset*6,top:offset*8,
+              height:160,borderRadius:18,
+              background:next.color+'30',
+              transform:`scale(${1 - offset*0.04})`,
+              opacity: 1 - offset*0.3,
+              zIndex: 0
+            }}/>
+          );
+        })}
+        {/* Передняя карта */}
+        <div style={{
+          position:'absolute',inset:0,height:160,borderRadius:18,
+          background:`linear-gradient(135deg, ${t.color} 0%, ${t.color}dd 100%)`,
+          padding:18,color:'white',zIndex:2,overflow:'hidden'
+        }}>
+          <div style={{position:'absolute',right:-30,top:-20,fontSize:160,opacity:0.18}}>{t.emoji}</div>
+          <div style={{fontSize:11,opacity:0.85,textTransform:'uppercase',letterSpacing:'0.06em'}}>Тренировка</div>
+          <div style={{fontFamily:'Fraunces,serif',fontStyle:'italic',fontSize:28,fontWeight:500,marginTop:4}}>{t.label}</div>
+          <div style={{fontSize:12,opacity:0.85,marginTop:4}}>последняя {t.last}</div>
+          <div style={{position:'absolute',bottom:14,left:18,right:18,display:'flex',alignItems:'center',gap:8}}>
+            <button onClick={()=>setIdx((idx-1+TRAINING.types.length)%TRAINING.types.length)} style={{width:32,height:32,background:'rgba(255,255,255,0.2)',border:'none',borderRadius:'50%',color:'white',fontSize:14,cursor:'pointer'}}>‹</button>
+            <button style={{flex:1,background:'rgba(255,255,255,0.95)',color:INK,border:'none',borderRadius:10,padding:'8px',fontSize:13,fontWeight:600,cursor:'pointer'}}>Начать</button>
+            <button onClick={()=>setIdx((idx+1)%TRAINING.types.length)} style={{width:32,height:32,background:'rgba(255,255,255,0.2)',border:'none',borderRadius:'50%',color:'white',fontSize:14,cursor:'pointer'}}>›</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Точки-индикаторы */}
+      <div style={{display:'flex',justifyContent:'center',gap:6,marginBottom:14}}>
+        {TRAINING.types.map((_,i)=>(
+          <div key={i} onClick={()=>setIdx(i)} style={{
+            width: i===idx ? 18 : 6, height:6,borderRadius:3,
+            background: i===idx ? TRAINING.color : '#00000020',
+            transition:'width 0.2s',cursor:'pointer'
+          }}/>
+        ))}
+      </div>
+
+      {/* Чтение — стопка из книг */}
+      <div style={{background:CARD,borderRadius:18,padding:14}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <div style={{fontSize:13,fontWeight:600,color:INK}}>Чтение</div>
+          <div style={{fontSize:10,color:SUB,textTransform:'uppercase',letterSpacing:'0.05em'}}>3 книги</div>
+        </div>
+        <div style={{display:'flex',gap:14,alignItems:'flex-end'}}>
+          {READING.recent.map((b,i)=>(
+            <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,opacity:i===0?1:0.7,cursor:'pointer'}}>
+              <BookCover color={b.cover} size={56}/>
+              <div style={{width:34,height:3,background:'#0000000a',borderRadius:2,overflow:'hidden'}}>
+                <div style={{width:`${b.progress*100}%`,height:'100%',background:READING.color}}/>
+              </div>
+              {i===0 && <div style={{fontSize:9,color:READING.color,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.04em'}}>сейчас</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{position:'absolute',bottom:14,left:14,right:14,fontSize:11,color:SUB,textAlign:'center',lineHeight:1.5}}>
+        Stacked · карточка как колода<br/>swipe или ‹ › переключают тип
+      </div>
+    </Phone>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════════════════════════════════
+function App() {
+  return (
+    <DesignCanvas title="Карточка занятия с подтипами" subtitle="Тренировка имеет 4 типа · чтение — одну активную книгу · 5 разных способов раскрытия">
+      <DCSection id="expand" title="Раскрытие в потоке">
+        <DCArtboard id="inline" label="A · Inline expand" width={420} height={760}>
+          <div style={{padding:20,display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}><VariantA/></div>
+        </DCArtboard>
+        <DCArtboard id="sheet" label="B · Bottom sheet" width={420} height={760}>
+          <div style={{padding:20,display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}><VariantB/></div>
+        </DCArtboard>
+      </DCSection>
+      <DCSection id="visible" title="Всё видно сразу">
+        <DCArtboard id="grid" label="C · Mini-grid faces" width={420} height={760}>
+          <div style={{padding:20,display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}><VariantC/></div>
+        </DCArtboard>
+      </DCSection>
+      <DCSection id="resume" title="Продолжение прерванного">
+        <DCArtboard id="quick" label="D · Quick-resume" width={420} height={760}>
+          <div style={{padding:20,display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}><VariantD/></div>
+        </DCArtboard>
+        <DCArtboard id="stack" label="E · Stacked deck" width={420} height={760}>
+          <div style={{padding:20,display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}><VariantE/></div>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<div id="root"></div>
+</body>
+</html>

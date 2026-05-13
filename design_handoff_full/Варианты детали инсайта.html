@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Варианты детали инсайта</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300..700;1,300..600&family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #1a1a2e; font-family: 'DM Sans', system-ui, sans-serif; }
+
+  .phone-shell {
+    width: 390px; height: 844px;
+    background: #1C1917;
+    border-radius: 46px;
+    padding: 10px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    flex-shrink: 0;
+  }
+  .phone-screen {
+    width: 100%; height: 100%;
+    border-radius: 38px;
+    overflow: hidden;
+    position: relative;
+    display: flex; flex-direction: column;
+  }
+  .notch { position:absolute; top:0; left:50%; transform:translateX(-50%); width:110px; height:30px; background:#1C1917; border-radius:0 0 18px 18px; z-index:20; }
+  .status-bar { height:44px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px 6px; flex-shrink:0; font-size:14px; font-weight:600; }
+  .home-indicator { height:30px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .home-bar { width:120px; height:5px; background:#1C1917; border-radius:3px; opacity:0.25; }
+
+  .scrollable { overflow-y:auto; flex:1; }
+  .scrollable::-webkit-scrollbar { display:none; }
+
+  .top-nav { padding:14px 16px 8px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .top-nav-btn { width:36px; height:36px; border-radius:50%; background:#FFFFFFcc; backdrop-filter:blur(8px); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:18px; }
+
+  .ink { color: #1C1917; }
+  .muted { color: #78716C; }
+</style>
+</head>
+<body>
+<script type="text/babel" src="design-canvas.jsx" data-presets="env,react"></script>
+<script type="text/babel" data-presets="env,react">
+const { useState, useMemo } = React;
+const { DesignCanvas, DCSection, DCArtboard } = window;
+
+// ─── Палитра, общая для всех вариантов ───────────────────────────────────
+const BG = '#ECE7DF';
+const TILE = '#FFFFFF';
+const INK = '#1C1917';
+const SUB = '#78716C';
+const ACCENT = '#C2692A';
+const TRAIN_COLOR = '#10b981';
+
+// ─── Данные инсайта (повторяют структуру в основном файле) ─────────────
+// Тренировки поднимают настроение
+const INSIGHT = {
+  title: 'Тренировки поднимают настроение',
+  desc: 'В дни с тренировкой настроение выше на 1.5 пункта',
+  emoji: '🏋️',
+  color: TRAIN_COLOR,
+  obs: 14, strength: 0.78, days: 30,
+  withMood: 7.2, withoutMood: 5.7,
+  withEnergy: 7.8, withoutEnergy: 6.1,
+};
+
+// Mock-данные за 30 дней: настроение и был ли тренинг
+const TIMELINE = (() => {
+  const data = [];
+  for (let i = 29; i >= 0; i--) {
+    const trained = Math.random() > 0.55;
+    const base = trained ? 6.5 + Math.random()*2.5 : 4.5 + Math.random()*2.5;
+    data.push({
+      day: i, trained,
+      mood: Math.round(Math.max(0, Math.min(10, base)) * 10)/10,
+      energy: Math.round(Math.max(0, Math.min(10, base + (Math.random()-0.5))) * 10)/10,
+      duration: trained ? 30 + Math.floor(Math.random()*60) : 0,
+      type: trained ? ['Силовая','Кардио','Йога','Бег'][Math.floor(Math.random()*4)] : null,
+    });
+  }
+  return data;
+})();
+
+// ─── Общий PhoneShell ────────────────────────────────────────────────────
+function Phone({children, bg=BG}) {
+  return (
+    <div className="phone-shell">
+      <div className="phone-screen" style={{background:bg}}>
+        <div className="notch"/>
+        <div className="status-bar" style={{color:INK}}>
+          <span>14:32</span>
+          <span style={{fontSize:11}}>● ● ●</span>
+        </div>
+        {children}
+        <div className="home-indicator"><div className="home-bar"/></div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Hero badge / cover shapes (как в bento.jsx) ────────────────────────
+function Cover({type='circles', color=TRAIN_COLOR, emoji, size='lg'}) {
+  const radius = size==='lg' ? [180,120] : [120,80];
+  return (
+    <div style={{position:'absolute',inset:0,overflow:'hidden',borderRadius:'inherit'}}>
+      {type==='circles' && <>
+        <div style={{position:'absolute',width:radius[0],height:radius[0],borderRadius:'50%',
+          background:color+'35',right:-radius[0]/4,bottom:-radius[0]/4}}/>
+        <div style={{position:'absolute',width:radius[1],height:radius[1],borderRadius:'50%',
+          background:color+'55',right:-radius[1]/8,bottom:-radius[1]/8}}/>
+      </>}
+      {type==='stripes' && <div style={{position:'absolute',inset:0,
+        background:`repeating-linear-gradient(135deg, ${color}25 0 12px, transparent 12px 28px)`}}/>}
+      {type==='arc' && <div style={{position:'absolute',width:240,height:240,borderRadius:'50%',
+        border:`22px solid ${color}50`,right:-110,top:-70}}/>}
+      {emoji && <div style={{position:'absolute',right:16,bottom:12,fontSize:size==='lg'?56:42,filter:'drop-shadow(0 2px 6px rgba(0,0,0,0.08))'}}>{emoji}</div>}
+    </div>
+  );
+}
+
+function BlackCTA({children, icon='→'}) {
+  return (
+    <button style={{
+      width:'100%',padding:'16px 18px',borderRadius:18,
+      background:INK,color:'white',border:'none',cursor:'pointer',
+      display:'flex',alignItems:'center',justifyContent:'space-between',
+      fontSize:15,fontWeight:600,fontFamily:'DM Sans,sans-serif'
+    }}>
+      <span style={{display:'flex',alignItems:'center',gap:10}}>
+        <span style={{width:28,height:28,borderRadius:'50%',background:ACCENT,
+          display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>{icon}</span>
+        {children}
+      </span>
+      <span style={{color:ACCENT,fontSize:20,fontWeight:700}}>›</span>
+    </button>
+  );
+}
+
+function TopNav({title}) {
+  return (
+    <div className="top-nav">
+      <button className="top-nav-btn">‹</button>
+      <span style={{fontSize:13,fontWeight:600,color:INK}}>{title}</span>
+      <button className="top-nav-btn">⋯</button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ВАРИАНТ A — Бенто-разбор
+// ═══════════════════════════════════════════════════════════════════════
+function VariantA() {
+  // mini chart: with vs without bar chart, отдельные точки на оси
+  const max = Math.max(INSIGHT.withMood, INSIGHT.withoutMood) + 1;
+  return (
+    <Phone>
+      <TopNav title="Инсайт"/>
+      <div className="scrollable" style={{padding:'0 14px 20px'}}>
+
+        {/* HERO */}
+        <div style={{borderRadius:22,overflow:'hidden',marginBottom:8,background:TILE}}>
+          <div style={{height:130,background:TRAIN_COLOR+'14',position:'relative'}}>
+            <Cover type="circles" color={TRAIN_COLOR} emoji={INSIGHT.emoji} size="lg"/>
+            <div style={{position:'absolute',top:12,left:14,
+              fontSize:10,padding:'4px 10px',borderRadius:100,
+              background:INK,color:'white',fontWeight:600,
+              textTransform:'uppercase',letterSpacing:'0.04em'}}>Энергия · 78%</div>
+          </div>
+          <div style={{padding:'14px 16px 16px'}}>
+            <div style={{fontFamily:'Fraunces,serif',fontStyle:'italic',fontSize:19,
+              fontWeight:600,color:INK,lineHeight:1.25,marginBottom:6}}>
+              {INSIGHT.title}
+            </div>
+            <div style={{fontSize:13,color:SUB,lineHeight:1.5}}>{INSIGHT.desc}</div>
+          </div>
+        </div>
+
+        {/* Парные стат-тайлы */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+          <div style={{background:'#F2D9BD',borderRadius:18,padding:14,minHeight:88,position:'relative'}}>
+            <div style={{fontSize:11,color:INK+'aa'}}>Эффект на настроение</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:4,marginTop:6}}>
+              <div style={{fontSize:28,fontWeight:700,color:INK,fontFamily:'Fraunces,serif'}}>+1.5</div>
+              <div style={{fontSize:12,color:INK+'99'}}>пункта</div>
+            </div>
+          </div>
+          <div style={{background:'#D9E1D0',borderRadius:18,padding:14,minHeight:88,position:'relative'}}>
+            <div style={{fontSize:11,color:INK+'aa'}}>Сила связи</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:4,marginTop:6}}>
+              <div style={{fontSize:28,fontWeight:700,color:INK,fontFamily:'Fraunces,serif'}}>78%</div>
+              <div style={{fontSize:12,color:INK+'99'}}>уверен.</div>
+            </div>
+            <div style={{position:'absolute',right:14,bottom:12,height:24,display:'flex',alignItems:'flex-end',gap:2}}>
+              {[0.4,0.6,0.5,0.78].map((v,i)=>(
+                <div key={i} style={{width:5,height:v*24,borderRadius:2,background:TRAIN_COLOR+(i===3?'':'66')}}/>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* COMPARISON tile */}
+        <div style={{background:TILE,borderRadius:18,padding:16,marginBottom:8}}>
+          <div style={{fontSize:11,color:SUB,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:14}}>
+            Сравнение
+          </div>
+          <div style={{display:'flex',gap:14,alignItems:'flex-end',marginBottom:8}}>
+            <div style={{flex:1,textAlign:'center'}}>
+              <div style={{fontSize:11,color:SUB,marginBottom:6}}>С тренировкой</div>
+              <div style={{height:120,background:TRAIN_COLOR+'18',borderRadius:10,position:'relative',display:'flex',alignItems:'flex-end',justifyContent:'center',padding:8}}>
+                <div style={{width:'100%',height:`${(INSIGHT.withMood/max)*100}%`,background:TRAIN_COLOR,borderRadius:6}}/>
+                <div style={{position:'absolute',top:8,left:0,right:0,textAlign:'center',
+                  fontSize:22,fontWeight:700,color:INK,fontFamily:'Fraunces,serif'}}>{INSIGHT.withMood}</div>
+              </div>
+            </div>
+            <div style={{flex:1,textAlign:'center'}}>
+              <div style={{fontSize:11,color:SUB,marginBottom:6}}>Без</div>
+              <div style={{height:120,background:'#0001',borderRadius:10,position:'relative',display:'flex',alignItems:'flex-end',justifyContent:'center',padding:8}}>
+                <div style={{width:'100%',height:`${(INSIGHT.withoutMood/max)*100}%`,background:SUB+'80',borderRadius:6}}/>
+                <div style={{position:'absolute',top:8,left:0,right:0,textAlign:'center',
+                  fontSize:22,fontWeight:700,color:INK,fontFamily:'Fraunces,serif'}}>{INSIGHT.withoutMood}</div>
+              </div>
+            </div>
+          </div>
+          <div style={{fontSize:11,color:SUB,textAlign:'center'}}>
+            Средний показатель настроения, 0–10
+          </div>
+        </div>
+
+        {/* Timeline 30 дней */}
+        <div style={{background:TILE,borderRadius:18,padding:16,marginBottom:8}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:12}}>
+            <div style={{fontSize:11,color:SUB,textTransform:'uppercase',letterSpacing:'0.05em'}}>Последние 30 дней</div>
+            <div style={{fontSize:11,color:SUB}}>{INSIGHT.obs} наблюдений</div>
+          </div>
+          <div style={{display:'flex',alignItems:'flex-end',gap:2,height:90}}>
+            {TIMELINE.map((d,i)=>(
+              <div key={i} style={{flex:1,height:'100%',display:'flex',flexDirection:'column',justifyContent:'flex-end',gap:2}}>
+                <div style={{height:`${(d.mood/10)*100}%`,minHeight:3,
+                  background:d.trained?TRAIN_COLOR:SUB+'40',
+                  borderRadius:2}}/>
+                <div style={{height:4,background:d.trained?TRAIN_COLOR:'transparent',borderRadius:2}}/>
+              </div>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:14,marginTop:10,fontSize:11,color:SUB}}>
+            <span style={{display:'flex',alignItems:'center',gap:5}}>
+              <span style={{width:8,height:8,borderRadius:2,background:TRAIN_COLOR}}/>тренировка
+            </span>
+            <span style={{display:'flex',alignItems:'center',gap:5}}>
+              <span style={{width:8,height:8,borderRadius:2,background:SUB+'40'}}/>без
+            </span>
+          </div>
+        </div>
+
+        {/* Совет */}
+        <div style={{background:TRAIN_COLOR+'12',borderRadius:18,padding:16,marginBottom:12}}>
+          <div style={{fontSize:11,color:TRAIN_COLOR,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.04em'}}>💡 Что попробовать</div>
+          <div style={{fontSize:14,color:INK,lineHeight:1.5}}>
+            Используй тренировку как инструмент подъёма. Запланируй короткие сессии в дни, когда настроение проседает.
+          </div>
+        </div>
+
+        <BlackCTA icon="→">Связанные паттерны</BlackCTA>
+      </div>
+    </Phone>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ВАРИАНТ B — Лаборатория (аналитический режим)
+// ═══════════════════════════════════════════════════════════════════════
+function VariantB() {
+  const [tab, setTab] = useState('compare');
+
+  // Распределение настроения по диапазонам
+  const withBins = [0,0,2,4,5,3]; // 0-2, 2-4, 4-6, 6-8, 8-10
+  const withoutBins = [1,2,4,5,2,0];
+
+  return (
+    <Phone bg="#F4F1EC">
+      <TopNav title="Анализ паттерна"/>
+
+      <div className="scrollable" style={{padding:'0 14px 20px'}}>
+        {/* Compact header */}
+        <div style={{padding:'4px 4px 14px',display:'flex',alignItems:'center',gap:12}}>
+          <div style={{width:48,height:48,borderRadius:14,background:TRAIN_COLOR+'18',
+            display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{INSIGHT.emoji}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:15,fontWeight:600,color:INK,fontFamily:'Fraunces,serif',fontStyle:'italic',lineHeight:1.2,marginBottom:2}}>{INSIGHT.title}</div>
+            <div style={{fontSize:11,color:SUB,fontFamily:'JetBrains Mono,monospace'}}>n={INSIGHT.obs} · conf 78% · 30d</div>
+          </div>
+        </div>
+
+        {/* Сегментный контрол */}
+        <div style={{display:'flex',background:'#0000000a',borderRadius:12,padding:3,marginBottom:12}}>
+          {[
+            ['compare','Сравнение'],
+            ['distrib','Распределение'],
+            ['scatter','Корреляция'],
+          ].map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)} style={{
+              flex:1,padding:'9px 0',borderRadius:9,border:'none',cursor:'pointer',
+              background: tab===id?'white':'transparent',
+              color: tab===id?INK:SUB, fontSize:12,fontWeight:500,
+              boxShadow: tab===id?'0 1px 3px rgba(0,0,0,0.08)':'none'
+            }}>{lbl}</button>
+          ))}
+        </div>
+
+        {/* CONTENT */}
+        {tab==='compare' && (
+          <>
+            <div style={{background:TILE,borderRadius:16,padding:16,marginBottom:10}}>
+              <div style={{fontSize:11,color:SUB,marginBottom:14,textTransform:'uppercase',letterSpacing:'0.04em'}}>Среднее по группам</div>
+              {[
+                ['Настроение', INSIGHT.withMood, INSIGHT.withoutMood, '+1.5'],
+                ['Энергия', INSIGHT.withEnergy, INSIGHT.withoutEnergy, '+1.7'],
+                ['Качество сна', 7.4, 6.2, '+1.2'],
+              ].map(([metric, w, wo, diff], i)=>(
+                <div key={i} style={{marginBottom: i<2?16:0}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6}}>
+                    <span style={{fontSize:13,color:INK,fontWeight:500}}>{metric}</span>
+                    <span style={{fontSize:12,color:TRAIN_COLOR,fontWeight:600,fontFamily:'JetBrains Mono'}}>{diff}</span>
+                  </div>
+                  <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                    <div style={{width:46,fontSize:11,color:SUB,textAlign:'right'}}>с трен.</div>
+                    <div style={{flex:1,height:18,background:'#0000000a',borderRadius:4,position:'relative'}}>
+                      <div style={{width:`${(w/10)*100}%`,height:'100%',background:TRAIN_COLOR,borderRadius:4}}/>
+                      <span style={{position:'absolute',right:6,top:1,fontSize:11,color:'white',fontWeight:600,fontFamily:'JetBrains Mono'}}>{w.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',gap:6,alignItems:'center',marginTop:4}}>
+                    <div style={{width:46,fontSize:11,color:SUB,textAlign:'right'}}>без</div>
+                    <div style={{flex:1,height:18,background:'#0000000a',borderRadius:4,position:'relative'}}>
+                      <div style={{width:`${(wo/10)*100}%`,height:'100%',background:SUB+'70',borderRadius:4}}/>
+                      <span style={{position:'absolute',right:6,top:1,fontSize:11,color:'white',fontWeight:600,fontFamily:'JetBrains Mono'}}>{wo.toFixed(1)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Уверенность */}
+            <div style={{background:TILE,borderRadius:16,padding:16,marginBottom:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10}}>
+                <span style={{fontSize:11,color:SUB,textTransform:'uppercase',letterSpacing:'0.04em'}}>Уверенность связи</span>
+                <span style={{fontSize:14,fontWeight:600,color:TRAIN_COLOR,fontFamily:'JetBrains Mono'}}>78%</span>
+              </div>
+              <div style={{height:8,background:'#0000000a',borderRadius:4,overflow:'hidden',marginBottom:8}}>
+                <div style={{width:'78%',height:'100%',background:`linear-gradient(90deg,${TRAIN_COLOR},${TRAIN_COLOR}cc)`,borderRadius:4}}/>
+              </div>
+              <div style={{fontSize:11,color:SUB,lineHeight:1.5}}>
+                Чтобы достичь 85%, нужно ещё ~6 наблюдений с тренировкой.
+              </div>
+            </div>
+          </>
+        )}
+
+        {tab==='distrib' && (
+          <div style={{background:TILE,borderRadius:16,padding:16,marginBottom:10}}>
+            <div style={{fontSize:11,color:SUB,marginBottom:14,textTransform:'uppercase',letterSpacing:'0.04em'}}>Распределение настроения</div>
+            <div style={{position:'relative',height:160,marginBottom:8}}>
+              <div style={{display:'flex',alignItems:'flex-end',height:'100%',gap:6}}>
+                {withBins.map((v,i)=>{
+                  const maxv = Math.max(...withBins, ...withoutBins);
+                  return (
+                    <div key={i} style={{flex:1,display:'flex',gap:2,alignItems:'flex-end',height:'100%'}}>
+                      <div style={{flex:1,height:`${(v/maxv)*100}%`,background:TRAIN_COLOR,borderRadius:'3px 3px 0 0',minHeight:v>0?4:0}}/>
+                      <div style={{flex:1,height:`${(withoutBins[i]/maxv)*100}%`,background:SUB+'70',borderRadius:'3px 3px 0 0',minHeight:withoutBins[i]>0?4:0}}/>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:6,fontSize:10,color:SUB,fontFamily:'JetBrains Mono'}}>
+              {['0-2','2-4','4-6','6-8','8-10'].map(l=>(
+                <div key={l} style={{flex:1,textAlign:'center'}}>{l}</div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:16,marginTop:14,fontSize:11,color:SUB,justifyContent:'center'}}>
+              <span style={{display:'flex',alignItems:'center',gap:5}}>
+                <span style={{width:10,height:10,borderRadius:2,background:TRAIN_COLOR}}/>с тренировкой
+              </span>
+              <span style={{display:'flex',alignItems:'center',gap:5}}>
+                <span style={{width:10,height:10,borderRadius:2,background:SUB+'70'}}/>без
+              </span>
+            </div>
+          </div>
+        )}
+
+        {tab==='scatter' && (
+          <div style={{background:TILE,borderRadius:16,padding:16,marginBottom:10}}>
+            <div style={{fontSize:11,color:SUB,marginBottom:4,textTransform:'uppercase',letterSpacing:'0.04em'}}>Длительность → настроение</div>
+            <div style={{fontSize:11,color:SUB,marginBottom:14}}>каждая точка — один день</div>
+            <div style={{position:'relative',height:200,border:'1px dashed #0001',borderRadius:8,padding:8}}>
+              {/* Ось */}
+              <div style={{position:'absolute',left:0,bottom:0,width:'100%',height:1,background:'#0002'}}/>
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:1,background:'#0002'}}/>
+              {/* Точки */}
+              {TIMELINE.filter(d=>d.trained).map((d,i)=>{
+                const x = (d.duration/100)*90+5;
+                const y = (d.mood/10)*90+5;
+                return (
+                  <div key={i} style={{
+                    position:'absolute',
+                    left:`${x}%`, bottom:`${y}%`,
+                    width:10,height:10,borderRadius:'50%',
+                    background:TRAIN_COLOR,
+                    transform:'translate(-50%,50%)',
+                    border:'1.5px solid white',
+                    boxShadow:'0 1px 2px rgba(0,0,0,0.1)'
+                  }}/>
+                );
+              })}
+              {/* Линия тренда */}
+              <svg style={{position:'absolute',inset:8,width:'calc(100% - 16px)',height:'calc(100% - 16px)',pointerEvents:'none'}}>
+                <line x1="0%" y1="70%" x2="100%" y2="20%" stroke={TRAIN_COLOR} strokeWidth="2" strokeDasharray="4 4" opacity="0.5"/>
+              </svg>
+              <div style={{position:'absolute',left:6,top:6,fontSize:10,color:SUB,fontFamily:'JetBrains Mono'}}>mood ↑</div>
+              <div style={{position:'absolute',right:6,bottom:6,fontSize:10,color:SUB,fontFamily:'JetBrains Mono'}}>длит. →</div>
+            </div>
+            <div style={{marginTop:10,padding:'10px 12px',background:TRAIN_COLOR+'10',borderRadius:10,fontSize:12,color:INK,lineHeight:1.5}}>
+              Тренд: каждые +10 мин → ~+0.3 пункта настроения
+            </div>
+          </div>
+        )}
+
+        {/* Наблюдения список */}
+        <div style={{background:TILE,borderRadius:16,padding:'14px 0 4px',marginBottom:12}}>
+          <div style={{fontSize:11,color:SUB,marginBottom:10,textTransform:'uppercase',letterSpacing:'0.04em',padding:'0 16px'}}>Последние наблюдения</div>
+          {TIMELINE.filter(d=>d.trained).slice(0,4).map((d,i,a)=>(
+            <div key={i} style={{padding:'10px 16px',display:'flex',alignItems:'center',gap:10,
+              borderBottom:i<a.length-1?'1px solid #00000008':'none'}}>
+              <div style={{width:30,height:30,borderRadius:8,background:TRAIN_COLOR+'18',
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>{INSIGHT.emoji}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,color:INK,fontWeight:500}}>{d.type} · {d.duration} мин</div>
+                <div style={{fontSize:11,color:SUB,fontFamily:'JetBrains Mono'}}>{d.day} д. назад</div>
+              </div>
+              <div style={{fontSize:13,fontWeight:600,color:TRAIN_COLOR,fontFamily:'JetBrains Mono'}}>{d.mood}</div>
+            </div>
+          ))}
+        </div>
+
+        <BlackCTA icon="✦">Запланировать тренировку</BlackCTA>
+      </div>
+    </Phone>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ВАРИАНТ C — Журнал / нарратив
+// ═══════════════════════════════════════════════════════════════════════
+function VariantC() {
+  return (
+    <Phone bg="#F8F4ED">
+      <TopNav title=""/>
+      <div className="scrollable" style={{padding:'0 24px 24px'}}>
+        {/* Тип контента — журнал */}
+        <div style={{padding:'4px 0 16px'}}>
+          <div style={{fontSize:11,color:ACCENT,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10,fontWeight:500}}>
+            Паттерн · энергия
+          </div>
+          <div style={{fontFamily:'Fraunces,serif',fontSize:32,lineHeight:1.15,fontWeight:300,color:INK,marginBottom:14}}>
+            <span style={{fontStyle:'italic'}}>Тренировки</span> поднимают твоё настроение.
+          </div>
+          <div style={{fontSize:14,color:SUB,lineHeight:1.6}}>
+            За 30 дней это проявилось 14 раз. Связь крепкая — мы можем уверенно говорить об этом.
+          </div>
+        </div>
+
+        {/* Большая цифра-цитата */}
+        <div style={{padding:'20px 0',borderTop:'1px solid #0001',borderBottom:'1px solid #0001',marginBottom:24,textAlign:'center'}}>
+          <div style={{fontFamily:'Fraunces,serif',fontSize:80,fontWeight:300,color:TRAIN_COLOR,lineHeight:1,marginBottom:6}}>+1.5</div>
+          <div style={{fontSize:12,color:SUB,letterSpacing:'0.04em'}}>пункта настроения в среднем</div>
+        </div>
+
+        {/* Текст-разбор */}
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:11,color:SUB,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:10,fontWeight:500}}>
+            Что говорят данные
+          </div>
+          <div style={{fontSize:15,color:INK,lineHeight:1.65,fontFamily:'DM Sans'}}>
+            В дни с тренировкой твоё настроение в среднем <b style={{color:TRAIN_COLOR}}>7.2 / 10</b>. В дни без — <b>5.7 / 10</b>. Это разница в 1.5 пункта — заметно даже без анализа.
+          </div>
+        </div>
+
+        {/* Inline timeline visual */}
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:11,color:SUB,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:14,fontWeight:500}}>
+            Последний месяц
+          </div>
+          <div style={{display:'flex',alignItems:'flex-end',gap:3,height:80,marginBottom:8}}>
+            {TIMELINE.map((d,i)=>(
+              <div key={i} style={{flex:1,height:`${(d.mood/10)*100}%`,minHeight:4,
+                background:d.trained?TRAIN_COLOR:INK+'15',borderRadius:2}}/>
+            ))}
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:SUB,fontFamily:'JetBrains Mono'}}>
+            <span>30 дн назад</span>
+            <span>сегодня</span>
+          </div>
+        </div>
+
+        {/* Цитата дня */}
+        <div style={{padding:'18px 0',borderTop:'1px solid #0001',marginBottom:14}}>
+          <div style={{fontSize:11,color:SUB,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:10,fontWeight:500}}>
+            Из твоего дневника
+          </div>
+          <div style={{fontFamily:'Fraunces,serif',fontStyle:'italic',fontSize:17,lineHeight:1.5,color:INK,marginBottom:8}}>
+            «После йоги голова прояснилась — смог сосредоточиться весь день.»
+          </div>
+          <div style={{fontSize:11,color:SUB,fontFamily:'JetBrains Mono'}}>23 апреля · вт</div>
+        </div>
+
+        <div style={{padding:'18px 0',borderTop:'1px solid #0001',borderBottom:'1px solid #0001',marginBottom:24}}>
+          <div style={{fontFamily:'Fraunces,serif',fontStyle:'italic',fontSize:17,lineHeight:1.5,color:INK,marginBottom:8}}>
+            «Сходил на пробежку утром. День начался иначе.»
+          </div>
+          <div style={{fontSize:11,color:SUB,fontFamily:'JetBrains Mono'}}>18 апреля · чт</div>
+        </div>
+
+        {/* Что попробовать */}
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:11,color:SUB,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:10,fontWeight:500}}>
+            Что попробовать
+          </div>
+          <div style={{fontSize:15,color:INK,lineHeight:1.7}}>
+            Используй тренировку как <i style={{fontFamily:'Fraunces,serif'}}>инструмент подъёма</i>. Когда замечаешь, что настроение проседает — короткая 30-минутная сессия поможет вернуться.
+          </div>
+        </div>
+
+        {/* Связанные паттерны как тонкая линия */}
+        <div style={{padding:'18px 0',borderTop:'1px solid #0001'}}>
+          <div style={{fontSize:11,color:SUB,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:14,fontWeight:500}}>
+            Связано с
+          </div>
+          {[
+            ['🚶','Прогулка восстанавливает энергию','81%'],
+            ['😴','Тренировки улучшают качество сна','62%'],
+          ].map((row,i)=>(
+            <div key={i} style={{padding:'12px 0',display:'flex',alignItems:'center',gap:12,
+              borderBottom:i===0?'1px solid #0001':'none'}}>
+              <span style={{fontSize:20}}>{row[0]}</span>
+              <span style={{flex:1,fontSize:14,color:INK,fontFamily:'Fraunces,serif',fontStyle:'italic'}}>{row[1]}</span>
+              <span style={{fontSize:11,color:SUB,fontFamily:'JetBrains Mono'}}>{row[2]}</span>
+              <span style={{color:SUB,fontSize:18}}>›</span>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </Phone>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ВАРИАНТ D — Бенто × Лаборатория (синтез)
+// ═══════════════════════════════════════════════════════════════════════
+function VariantD() {
+  const [tab, setTab] = useState('compare');
+  const withBins = [0,0,2,4,5,3];
+  const withoutBins = [1,2,4,5,2,0];
+  const maxv = Math.max(...withBins, ...withoutBins);
+  return (
+    <Phone>
+      <TopNav title="Инсайт"/>
+      <div className="scrollable" style={{padding:'0 14px 20px'}}>
+
+        {/* HERO */}
+        <div style={{borderRadius:22,overflow:'hidden',marginBottom:8,background:TILE}}>
+          <div style={{height:130,background:TRAIN_COLOR+'14',position:'relative'}}>
+            <Cover type="circles" color={TRAIN_COLOR} emoji={INSIGHT.emoji} size="lg"/>
+            <div style={{position:'absolute',top:12,left:14,fontSize:10,padding:'4px 10px',borderRadius:100,background:INK,color:'white',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.04em'}}>Энергия · 78%</div>
+          </div>
+          <div style={{padding:'14px 16px 16px'}}>
+            <div style={{fontFamily:'Fraunces,serif',fontStyle:'italic',fontSize:19,fontWeight:600,color:INK,lineHeight:1.25,marginBottom:6}}>{INSIGHT.title}</div>
+            <div style={{fontSize:13,color:SUB,lineHeight:1.5}}>{INSIGHT.desc}</div>
+          </div>
+        </div>
+
+        {/* KPI пары */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+          <div style={{background:'#F2D9BD',borderRadius:18,padding:14,minHeight:88}}>
+            <div style={{fontSize:11,color:INK+'aa'}}>Эффект на настроение</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:4,marginTop:6}}>
+              <div style={{fontSize:28,fontWeight:700,color:INK,fontFamily:'Fraunces,serif'}}>+1.5</div>
+              <div style={{fontSize:12,color:INK+'99'}}>пункта</div>
+            </div>
+          </div>
+          <div style={{background:'#D9E1D0',borderRadius:18,padding:14,minHeight:88,position:'relative'}}>
+            <div style={{fontSize:11,color:INK+'aa'}}>Сила связи</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:4,marginTop:6}}>
+              <div style={{fontSize:28,fontWeight:700,color:INK,fontFamily:'Fraunces,serif'}}>78%</div>
+              <div style={{fontSize:12,color:INK+'99'}}>уверен.</div>
+            </div>
+            <div style={{position:'absolute',right:14,bottom:12,height:24,display:'flex',alignItems:'flex-end',gap:2}}>
+              {[0.4,0.6,0.5,0.78].map((v,i)=>(<div key={i} style={{width:5,height:v*24,borderRadius:2,background:TRAIN_COLOR+(i===3?'':'66')}}/>))}
+            </div>
+          </div>
+        </div>
+
+        {/* Сегментный контрол */}
+        <div style={{display:'flex',background:'#00000010',borderRadius:12,padding:3,marginBottom:8}}>
+          {[['compare','Сравнение'],['distrib','Распред.'],['scatter','Корреляция']].map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:'9px 0',borderRadius:9,border:'none',cursor:'pointer',background:tab===id?'white':'transparent',color:tab===id?INK:SUB,fontSize:12,fontWeight:500,boxShadow:tab===id?'0 1px 3px rgba(0,0,0,0.08)':'none'}}>{lbl}</button>
+          ))}
+        </div>
+
+        {/* TAB content */}
+        <div style={{background:TILE,borderRadius:18,padding:16,marginBottom:8,minHeight:240}}>
+          {tab==='compare' && (<>
+            <div style={{fontSize:11,color:SUB,marginBottom:14,textTransform:'uppercase',letterSpacing:'0.04em'}}>Среднее по группам</div>
+            {[['Настроение',INSIGHT.withMood,INSIGHT.withoutMood,'+1.5'],['Энергия',INSIGHT.withEnergy,INSIGHT.withoutEnergy,'+1.7'],['Качество сна',7.4,6.2,'+1.2']].map(([m,w,wo,d],i)=>(
+              <div key={i} style={{marginBottom:i<2?14:0}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:5}}>
+                  <span style={{fontSize:13,color:INK,fontWeight:500}}>{m}</span>
+                  <span style={{fontSize:12,color:TRAIN_COLOR,fontWeight:600,fontFamily:'JetBrains Mono'}}>{d}</span>
+                </div>
+                <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                  <div style={{width:36,fontSize:10,color:SUB,textAlign:'right'}}>с тр.</div>
+                  <div style={{flex:1,height:16,background:'#0000000a',borderRadius:4,position:'relative'}}>
+                    <div style={{width:`${(w/10)*100}%`,height:'100%',background:TRAIN_COLOR,borderRadius:4}}/>
+                    <span style={{position:'absolute',right:6,top:0,fontSize:10,color:'white',fontWeight:600,fontFamily:'JetBrains Mono',lineHeight:'16px'}}>{w.toFixed(1)}</span>
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:6,alignItems:'center',marginTop:3}}>
+                  <div style={{width:36,fontSize:10,color:SUB,textAlign:'right'}}>без</div>
+                  <div style={{flex:1,height:16,background:'#0000000a',borderRadius:4,position:'relative'}}>
+                    <div style={{width:`${(wo/10)*100}%`,height:'100%',background:SUB+'70',borderRadius:4}}/>
+                    <span style={{position:'absolute',right:6,top:0,fontSize:10,color:'white',fontWeight:600,fontFamily:'JetBrains Mono',lineHeight:'16px'}}>{wo.toFixed(1)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>)}
+          {tab==='distrib' && (<>
+            <div style={{fontSize:11,color:SUB,marginBottom:14,textTransform:'uppercase',letterSpacing:'0.04em'}}>Распределение настроения</div>
+            <div style={{display:'flex',alignItems:'flex-end',height:160,gap:6,marginBottom:8}}>
+              {withBins.map((v,i)=>(
+                <div key={i} style={{flex:1,display:'flex',gap:2,alignItems:'flex-end',height:'100%'}}>
+                  <div style={{flex:1,height:`${(v/maxv)*100}%`,background:TRAIN_COLOR,borderRadius:'3px 3px 0 0',minHeight:v>0?4:0}}/>
+                  <div style={{flex:1,height:`${(withoutBins[i]/maxv)*100}%`,background:SUB+'70',borderRadius:'3px 3px 0 0',minHeight:withoutBins[i]>0?4:0}}/>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:6,fontSize:10,color:SUB,fontFamily:'JetBrains Mono'}}>
+              {['0-2','2-4','4-6','6-8','8-10','10+'].map(l=>(<div key={l} style={{flex:1,textAlign:'center'}}>{l}</div>))}
+            </div>
+            <div style={{display:'flex',gap:16,marginTop:12,fontSize:11,color:SUB,justifyContent:'center'}}>
+              <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:10,height:10,borderRadius:2,background:TRAIN_COLOR}}/>с тренировкой</span>
+              <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:10,height:10,borderRadius:2,background:SUB+'70'}}/>без</span>
+            </div>
+          </>)}
+          {tab==='scatter' && (<>
+            <div style={{fontSize:11,color:SUB,marginBottom:14,textTransform:'uppercase',letterSpacing:'0.04em'}}>Длительность → настроение</div>
+            <div style={{position:'relative',height:180,border:'1px dashed #0001',borderRadius:8,padding:8}}>
+              {TIMELINE.filter(d=>d.trained).map((d,i)=>{
+                const x=(d.duration/100)*90+5, y=(d.mood/10)*90+5;
+                return <div key={i} style={{position:'absolute',left:`${x}%`,bottom:`${y}%`,width:10,height:10,borderRadius:'50%',background:TRAIN_COLOR,transform:'translate(-50%,50%)',border:'1.5px solid white',boxShadow:'0 1px 2px rgba(0,0,0,0.1)'}}/>;
+              })}
+              <svg style={{position:'absolute',inset:8,width:'calc(100% - 16px)',height:'calc(100% - 16px)',pointerEvents:'none'}}>
+                <line x1="0%" y1="70%" x2="100%" y2="20%" stroke={TRAIN_COLOR} strokeWidth="2" strokeDasharray="4 4" opacity="0.5"/>
+              </svg>
+              <div style={{position:'absolute',left:6,top:6,fontSize:10,color:SUB,fontFamily:'JetBrains Mono'}}>mood ↑</div>
+              <div style={{position:'absolute',right:6,bottom:6,fontSize:10,color:SUB,fontFamily:'JetBrains Mono'}}>длит. →</div>
+            </div>
+            <div style={{marginTop:10,padding:'8px 12px',background:TRAIN_COLOR+'10',borderRadius:10,fontSize:12,color:INK,lineHeight:1.4}}>Тренд: каждые +10 мин → ~+0.3 пункта</div>
+          </>)}
+        </div>
+
+        {/* Последние наблюдения */}
+        <div style={{background:TILE,borderRadius:18,padding:'14px 0 4px',marginBottom:8}}>
+          <div style={{fontSize:11,color:SUB,marginBottom:10,textTransform:'uppercase',letterSpacing:'0.04em',padding:'0 16px'}}>Последние наблюдения</div>
+          {TIMELINE.filter(d=>d.trained).slice(0,4).map((d,i,a)=>(
+            <div key={i} style={{padding:'10px 16px',display:'flex',alignItems:'center',gap:10,borderBottom:i<a.length-1?'1px solid #00000008':'none'}}>
+              <div style={{width:30,height:30,borderRadius:8,background:TRAIN_COLOR+'18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>{INSIGHT.emoji}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,color:INK,fontWeight:500}}>{d.type} · {d.duration} мин</div>
+                <div style={{fontSize:11,color:SUB,fontFamily:'JetBrains Mono'}}>{d.day} д. назад</div>
+              </div>
+              <div style={{fontSize:13,fontWeight:600,color:TRAIN_COLOR,fontFamily:'JetBrains Mono'}}>{d.mood}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Совет */}
+        <div style={{background:TRAIN_COLOR+'12',borderRadius:18,padding:14,marginBottom:12}}>
+          <div style={{fontSize:11,color:TRAIN_COLOR,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.04em'}}>💡 Что попробовать</div>
+          <div style={{fontSize:14,color:INK,lineHeight:1.5}}>Используй тренировку как инструмент подъёма настроения в дни с низкой энергией.</div>
+        </div>
+
+        <BlackCTA icon="→">Связанные паттерны</BlackCTA>
+      </div>
+    </Phone>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════════════════════════════════
+function App() {
+  return (
+    <DesignCanvas title="Детали инсайта · 3 варианта" subtitle="Тренировки → настроение. Один и тот же инсайт, три разных языка раскрытия.">
+      <DCSection id="variants" title="Варианты">
+        <DCArtboard id="bento" label="A · Бенто-разбор" width={410} height={864}>
+          <div style={{padding:0,display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}>
+            <VariantA/>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="lab" label="B · Лаборатория" width={410} height={864}>
+          <div style={{padding:0,display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}>
+            <VariantB/>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="journal" label="C · Журнал" width={410} height={864}>
+          <div style={{padding:0,display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}>
+            <VariantC/>
+          </div>
+        </DCArtboard>
+      </DCSection>
+      <DCSection id="combined" title="Синтез">
+        <DCArtboard id="bento-lab" label="D · Бенто × Лаборатория" width={410} height={864}>
+          <div style={{padding:0,display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}>
+            <VariantD/>
+          </div>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<div id="root"></div>
+</body>
+</html>

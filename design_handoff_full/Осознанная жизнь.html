@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Осознанная жизнь</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #1a1a2e; font-family: 'DM Sans', system-ui, sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+
+  :root {
+    --bg: #FAF7F2;
+    --bg2: #F5F0E8;
+    --card: #FFFFFF;
+    --fg: #1C1917;
+    --fg2: #44403C;
+    --muted: #78716C;
+    --border: rgba(0,0,0,0.07);
+    --primary: #C2692A;
+    --primary-light: #F5E6D8;
+    --indigo: #6366f1;
+    --indigo-light: #EEF2FF;
+    --teal: #14b8a6;
+    --amber: #f59e0b;
+    --green: #10b981;
+    --red: #ef4444;
+    --orange: #f97316;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 2px 16px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  }
+
+  .phone-shell {
+    width: 390px;
+    height: 844px;
+    background: #1C1917;
+    border-radius: 50px;
+    padding: 12px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.1);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .phone-screen {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .status-bar {
+    height: 50px;
+    background: var(--bg);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 24px 8px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+  .status-time { font-size: 15px; font-weight: 600; color: var(--fg); }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+  .status-icons svg { width: 16px; height: 16px; fill: var(--fg); }
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 34px; background: #1C1917;
+    border-radius: 0 0 20px 20px;
+  }
+  .screen-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .scrollable { overflow-y: auto; flex: 1; }
+  .scrollable::-webkit-scrollbar { display: none; }
+
+  /* Nav */
+  .bottom-nav {
+    height: 72px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 8px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 8px 16px; border-radius: 12px; cursor: pointer;
+    transition: all 0.2s; border: none; background: transparent;
+    flex: 1;
+  }
+  .nav-item.active .nav-icon { color: var(--primary); }
+  .nav-item.active .nav-label { color: var(--primary); font-weight: 500; }
+  .nav-icon { font-size: 20px; line-height: 1; transition: transform 0.2s; }
+  .nav-label { font-size: 10px; color: var(--muted); font-family: 'DM Sans', sans-serif; }
+  .nav-item:active .nav-icon { transform: scale(0.9); }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .card-inner { padding: 16px; }
+
+  /* Mood bar */
+  .mood-bar {
+    display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden;
+  }
+  .mood-seg { flex: 1; border-radius: 2px; }
+
+  /* Pill */
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 12px; border-radius: 100px;
+    font-size: 13px; font-weight: 500;
+    border: 1.5px solid transparent;
+    cursor: pointer; transition: all 0.15s;
+  }
+
+  /* Slider */
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 4px; border-radius: 2px;
+    background: var(--bg2); outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--primary); cursor: pointer;
+    box-shadow: 0 2px 8px rgba(194,105,42,0.4);
+  }
+
+  /* Toggle */
+  .toggle {
+    width: 44px; height: 26px; border-radius: 13px;
+    background: #D6D0C8; position: relative; cursor: pointer;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle.on { background: var(--primary); }
+  .toggle::after {
+    content: ''; position: absolute;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: white; top: 3px; left: 3px;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .toggle.on::after { transform: translateX(18px); }
+
+  /* Animations */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .fade-in { animation: fadeIn 0.3s ease forwards; }
+  .slide-up { animation: slideUp 0.35s ease forwards; }
+  .scale-in { animation: scaleIn 0.25s ease forwards; }
+
+  /* Section header */
+  .section-h {
+    font-size: 12px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px;
+  }
+
+  /* Bottom sheet overlay */
+  .sheet-overlay {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.4);
+    z-index: 50; display: flex; align-items: flex-end;
+    animation: fadeIn 0.2s ease;
+  }
+  .sheet {
+    width: 100%; background: var(--card);
+    border-radius: 24px 24px 0 0;
+    padding: 20px 20px 32px;
+    animation: slideUp 0.3s ease;
+    max-height: 80%;
+    overflow-y: auto;
+  }
+  .sheet::-webkit-scrollbar { display: none; }
+  .sheet-handle {
+    width: 36px; height: 4px; background: var(--border);
+    border-radius: 2px; margin: 0 auto 16px;
+  }
+
+  /* Home indicator */
+  .home-indicator {
+    height: 34px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .home-indicator-bar {
+    width: 130px; height: 5px; background: var(--fg);
+    border-radius: 3px; opacity: 0.2;
+  }
+
+  /* Insights chart */
+  .mini-bar { transition: height 0.4s ease; }
+
+  /* Tag chip */
+  .tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 100px;
+    font-size: 12px; border: 1.5px solid var(--border);
+    color: var(--muted); cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tag.active {
+    border-color: currentColor;
+    font-weight: 500;
+  }
+
+  /* Step dots */
+  .step-dot {
+    height: 3px; flex: 1; border-radius: 2px;
+    transition: background 0.3s;
+  }
+
+  /* Segmented control */
+  .seg-ctrl {
+    display: flex; background: var(--bg2); border-radius: 10px; padding: 3px; gap: 2px;
+  }
+  .seg-opt {
+    flex: 1; padding: 7px 0; border-radius: 8px; text-align: center;
+    font-size: 13px; cursor: pointer; transition: all 0.15s;
+    border: none; background: transparent; color: var(--muted);
+  }
+  .seg-opt.active { background: white; color: var(--fg); font-weight: 500; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+  .no-select { user-select: none; -webkit-user-select: none; }
+  
+  /* Activity grid */
+  .act-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .act-cell {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 10px 4px; border-radius: 12px; cursor: pointer;
+    transition: all 0.15s; border: 1.5px solid transparent;
+  }
+  .act-cell.active { border-color: currentColor; }
+  .act-emoji { font-size: 22px; line-height: 1; }
+  .act-label { font-size: 10px; text-align: center; color: var(--muted); line-height: 1.2; }
+
+  /* Day score ring */
+  .ring-svg { transform: rotate(-90deg); }
+
+  /* Tweaks panel */
+  .tweaks-panel {
+    position: absolute; bottom: 100px; right: 12px;
+    background: var(--card); border-radius: 16px;
+    box-shadow: var(--shadow-lg); padding: 16px;
+    width: 220px; z-index: 100;
+    animation: scaleIn 0.2s ease;
+    border: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<script type="text/babel" src="bento.jsx" data-presets="env,react"></script>
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ─── DATA ───────────────────────────────────────────────────────────────────
+
+const MOOD_COLORS = {
+  0:'#ef4444',1:'#ef4444',2:'#f97316',3:'#f97316',
+  4:'#eab308',5:'#eab308',6:'#84cc16',
+  7:'#22c55e',8:'#22c55e',9:'#10b981',10:'#059669'
+};
+const MOOD_LABELS = {
+  0:'ужасно',1:'очень плохо',2:'плохо',3:'тяжело',
+  4:'ниже среднего',5:'нормально',6:'неплохо',
+  7:'хорошо',8:'очень хорошо',9:'отлично',10:'великолепно'
+};
+
+const ACTIVITIES = [
+  {id:'work',label:'Работа',emoji:'💼',color:'#3b82f6'},
+  {id:'sport',label:'Спорт',emoji:'🏋️',color:'#10b981'},
+  {id:'reading',label:'Чтение',emoji:'📚',color:'#8b5cf6'},
+  {id:'social',label:'Соцсети',emoji:'📱',color:'#f43f5e'},
+  {id:'friends',label:'Общение',emoji:'👥',color:'#f59e0b'},
+  {id:'family',label:'Семья',emoji:'🏠',color:'#ec4899'},
+  {id:'cooking',label:'Готовка',emoji:'🍳',color:'#f97316'},
+  {id:'study',label:'Учёба',emoji:'🎓',color:'#6366f1'},
+  {id:'hobby',label:'Хобби',emoji:'🎨',color:'#14b8a6'},
+  {id:'walk',label:'Прогулка',emoji:'🚶',color:'#22c55e'},
+  {id:'rest',label:'Отдых',emoji:'😴',color:'#94a3b8'},
+  {id:'meditate',label:'Медитация',emoji:'🧘',color:'#a78bfa'},
+];
+
+const EVENTS = [
+  {id:'alcohol',label:'Алкоголь',emoji:'🍷',color:'#ef4444'},
+  {id:'binge',label:'Жор',emoji:'🍔',color:'#f97316'},
+  {id:'panic',label:'ПА',emoji:'😰',color:'#8b5cf6'},
+  {id:'conflict',label:'Конфликт',emoji:'⚡',color:'#f59e0b'},
+  {id:'good_news',label:'Хорошая новость',emoji:'🎉',color:'#10b981'},
+  {id:'insight',label:'Озарение',emoji:'💡',color:'#6366f1'},
+  {id:'gratitude',label:'Благодарность',emoji:'🙏',color:'#14b8a6'},
+];
+
+const MOCK_INSIGHTS = [
+  {id:'1',title:'Недосып → плохое настроение',desc:'В 80% случаев после < 6ч сна настроение ≤ 4',category:'sleep',layer:'patterns',strength:0.85,obs:18,emoji:'😴',color:'#6366f1',advice:'Попробуй неделю придерживаться коридора 7–8 часов',chart:[3.2,4.5,5.8,7.2,7.8],labels:['<5ч','5-6ч','6-7ч','7-8ч','>8ч']},
+  {id:'2',title:'Тренировки поднимают настроение',desc:'В дни с тренировкой настроение выше на 1.5 пункта',category:'body',layer:'energy',strength:0.78,obs:14,emoji:'🏋️',color:'#10b981',advice:'Используй тренировку как инструмент подъёма',chart:[6,7,8,7,8,7,6],labels:['Пн','Вт','Ср','Чт','Пт','Сб','Вс']},
+  {id:'3',title:'Соцсети > 2ч → падение энергии',desc:'Энергия к вечеру ниже на 2.5 пункта',category:'psyche',layer:'patterns',strength:0.76,obs:11,emoji:'📱',color:'#f43f5e',advice:'Таймер 30 минут для соцсетей — попробуй неделю',chart:[7.5,6.8,5.2,4.1],labels:['<30м','30-1ч','1-2ч','>2ч']},
+  {id:'4',title:'Прогулка — лучший перезаряд',desc:'После прогулки > 30 мин энергия растёт на 2 пункта',category:'body',layer:'energy',strength:0.81,obs:9,emoji:'🚶',color:'#22c55e',advice:'Используй прогулку после обеда для восстановления',chart:[4.5,6.2,6.8,6.0],labels:['До','+1ч','+2ч','+3ч']},
+  {id:'5',title:'Алкоголь разрушает следующий день',desc:'В 90% случаев после алкоголя настроение ниже на 2+',category:'body',layer:'lenses',strength:0.92,obs:8,emoji:'🍷',color:'#f97316',advice:'Добродетель Умеренность — даже раз в неделю даёт кумулятивный эффект',chart:[7,6,4,6],labels:['До','День','После','+2дня'],locked:true},
+  {id:'6',title:'Эта неделя — неделя Мудреца',desc:'Много чтения, рефлексии и медитации',category:'psyche',layer:'lenses',strength:0.65,obs:7,emoji:'📚',color:'#8b5cf6',advice:'Мудрец силён в понимании, но добавь действие — подключи Героя',chart:[45,20,15,20],labels:['Мудрец','Правитель','Герой','Искатель'],locked:true},
+  {id:'7',title:'Конфликт → ПА в течение 24ч',desc:'В 3 из 4 случаев после конфликта была ПА',category:'psyche',layer:'patterns',strength:0.88,obs:12,emoji:'⚡',color:'#6366f1',advice:'Инструменты после конфликта: дыхание, прогулка, медитация',chart:[3.2,0.8],labels:['С конфликтом','Без'],locked:true},
+];
+
+function generateDays(count) {
+  const days = [];
+  for (let i = 0; i < count; i++) {
+    const sleep = 4.5 + Math.random() * 5;
+    const mood = Math.round(Math.min(10, Math.max(0, (sleep > 7 ? 6 : 3) + (Math.random()*4-2))));
+    const energy = Math.round(Math.min(10, Math.max(0, mood + (Math.random()*2-1))));
+    const d = new Date(); d.setDate(d.getDate()-i);
+    days.push({
+      date: d.toISOString().split('T')[0],
+      mood, energy,
+      sleep: {hours: Math.round(sleep*2)/2, quality: Math.round(3+Math.random()*7)},
+      steps: Math.round(2000+Math.random()*13000),
+      training: i%2===0 ? (Math.random()>0.5 ? 'plus' : 'normal') : null,
+      work: ['plus','normal','minus',null][Math.floor(Math.random()*4)],
+      events: EVENTS.filter(()=>Math.random()>0.75).slice(0,2).map(e=>({id:e.id,intensity:1})),
+      activities: generateActivities(),
+      snapshots: generateSnapshots(mood, energy),
+      status: i===0 ? 'draft' : 'complete',
+      reflection: i%2===0 ? 'День прошёл продуктивно, удалось сосредоточиться на важном.' : '',
+      virtue: ['wisdom','temperance','courage','justice',null][Math.floor(Math.random()*5)],
+      archetype: ['sage','ruler','hero','explorer'][Math.floor(Math.random()*4)],
+      morningIntent: '',
+    });
+  }
+  return days;
+}
+
+function generateActivities() {
+  const entries = []; let hour = 7 + Math.random()*2;
+  for (let i=0; i<4+Math.floor(Math.random()*4); i++) {
+    const dur = 0.5 + Math.random()*2.5;
+    const sh=Math.floor(hour), sm=Math.floor((hour%1)*60);
+    const eh=Math.floor(hour+dur), em=Math.floor(((hour+dur)%1)*60);
+    entries.push({
+      id: Math.random().toString(36).substr(2,7),
+      actId: ACTIVITIES[Math.floor(Math.random()*ACTIVITIES.length)].id,
+      start: `${sh.toString().padStart(2,'0')}:${sm.toString().padStart(2,'0')}`,
+      end: `${eh.toString().padStart(2,'0')}:${em.toString().padStart(2,'0')}`,
+    });
+    hour += dur + Math.random()*0.5;
+    if (hour > 22) break;
+  }
+  return entries;
+}
+
+function generateSnapshots(mood, energy) {
+  return ['09:30','13:00','17:00','20:00'].filter(()=>Math.random()>0.4).map(time=>({
+    id: Math.random().toString(36).substr(2,7),
+    time, mood: Math.min(10,Math.max(0,mood+Math.round(Math.random()*4-2))),
+    energy: Math.min(10,Math.max(0,energy+Math.round(Math.random()*4-2))),
+    comment: Math.random()>0.6 ? ['После прогулки легче','Устал от звонков','Хорошо поел'][Math.floor(Math.random()*3)] : undefined,
+  }));
+}
+
+const INITIAL_DAYS = generateDays(30);
+const TODAY = INITIAL_DAYS[0];
+
+// ─── COMPONENTS ─────────────────────────────────────────────────────────────
+
+function MoodRing({mood, size=64}) {
+  const r = (size-8)/2, c = size/2;
+  const circ = 2*Math.PI*r;
+  const fill = (mood/10)*circ;
+  return (
+    <svg width={size} height={size} className="ring-svg">
+      <circle cx={c} cy={c} r={r} fill="none" stroke="var(--bg2)" strokeWidth={6}/>
+      <circle cx={c} cy={c} r={r} fill="none"
+        stroke={MOOD_COLORS[mood]} strokeWidth={6}
+        strokeDasharray={`${fill} ${circ-fill}`}
+        strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function MiniChart({data, color}) {
+  const max = Math.max(...data, 1);
+  return (
+    <div style={{display:'flex',alignItems:'flex-end',gap:3,height:40}}>
+      {data.map((v,i)=>(
+        <div key={i} style={{
+          flex:1, background: color+'33', borderRadius:3,
+          height: `${(v/max)*100}%`, position:'relative',
+          display:'flex',alignItems:'flex-end',justifyContent:'center'
+        }}>
+          <div style={{
+            position:'absolute',bottom:0,left:0,right:0,
+            background:color, borderRadius:3,
+            height:`${(v/max)*100}%`,
+            opacity:0.8
+          }}/>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ActivityDot({active, color}) {
+  if (!active) return null;
+  return <div style={{
+    width:6,height:6,borderRadius:'50%',
+    background:color,
+    animation:'pulse 2s infinite'
+  }}/>;
+}
+
+// ─── SCREENS ────────────────────────────────────────────────────────────────
+
+function NowScreen({days, setDays, tweaks}) {
+  const today = days[0];
+  const [activeActs, setActiveActs] = useState([]);
+  const [showMoodSheet, setShowMoodSheet] = useState(false);
+  const [showEventSheet, setShowEventSheet] = useState(false);
+  const [mood, setMood] = useState(today.mood);
+  const [energy, setEnergy] = useState(today.energy);
+  const [intent, setIntent] = useState(today.morningIntent || '');
+  const [tick, setTick] = useState(0);
+  const hour = new Date().getHours();
+
+  useEffect(()=>{
+    const t = setInterval(()=>setTick(x=>x+1), 30000);
+    return ()=>clearInterval(t);
+  },[]);
+
+  const streak = useMemo(()=>{
+    let s=0;
+    for(let i=1;i<days.length;i++){
+      if(days[i].status==='complete') s++; else break;
+    }
+    return s;
+  },[days]);
+
+  const toggleAct = (id) => {
+    setActiveActs(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
+  };
+
+  const totalTracked = useMemo(()=>{
+    return today.activities.reduce((sum,e)=>{
+      const [sh,sm]=e.start.split(':').map(Number);
+      const [eh,em]=e.end.split(':').map(Number);
+      return sum + (eh*60+em)-(sh*60+sm);
+    },0);
+  },[today]);
+
+  const actStats = useMemo(()=>{
+    const s={};
+    today.activities.forEach(e=>{
+      const [sh,sm]=e.start.split(':').map(Number);
+      const [eh,em]=e.end.split(':').map(Number);
+      const mins=(eh*60+em)-(sh*60+sm);
+      s[e.actId]=(s[e.actId]||0)+mins;
+    });
+    return s;
+  },[today]);
+
+  const greeting = hour < 12 ? '🌅 Доброе утро' : hour < 18 ? '☀️ Добрый день' : '🌙 Добрый вечер';
+
+  return (
+    <div className="scrollable" style={{padding:'0 0 16px'}}>
+      {/* Header */}
+      <div style={{padding:'16px 20px 0',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div>
+          <div style={{fontSize:13,color:'var(--muted)',marginBottom:2}}>{greeting}</div>
+          <div style={{fontSize:20,fontWeight:600,color:'var(--fg)',fontFamily:'Fraunces, Georgia, serif', fontStyle:'italic'}}>
+            {new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}
+          </div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {streak>0 && (
+            <div style={{
+              background:'linear-gradient(135deg,#f97316,#ef4444)',
+              color:'white',padding:'6px 10px',borderRadius:100,
+              display:'flex',alignItems:'center',gap:4,
+              fontSize:13,fontWeight:600
+            }}>
+              🔥 {streak}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Morning Intent */}
+      {tweaks.showIntent && (
+        <div style={{margin:'14px 20px 0',padding:'14px 16px',
+          background:'linear-gradient(135deg,#EEF2FF,#F5F3FF)',
+          borderRadius:16,border:'1.5px solid #e0e7ff'}}>
+          <div style={{fontSize:11,color:'#6366f1',fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+            Намерение на сегодня
+          </div>
+          <textarea
+            value={intent}
+            onChange={e=>setIntent(e.target.value)}
+            placeholder="Как ты хочешь прожить этот день?"
+            style={{
+              width:'100%',background:'transparent',border:'none',outline:'none',
+              fontSize:14,color:'#312e81',resize:'none',fontFamily:'DM Sans,sans-serif',
+              lineHeight:1.5
+            }}
+            rows={2}
+          />
+        </div>
+      )}
+
+      {/* Day Score */}
+      <div style={{margin:'14px 20px 0'}}>
+        <div className="card">
+          <div style={{padding:'16px',display:'flex',gap:16,alignItems:'center'}}>
+            <div style={{position:'relative',width:72,height:72,flexShrink:0}}>
+              <MoodRing mood={mood} size={72}/>
+              <div style={{
+                position:'absolute',inset:0,display:'flex',alignItems:'center',
+                justifyContent:'center',flexDirection:'column'
+              }}>
+                <span style={{fontSize:18,fontWeight:700,color:MOOD_COLORS[mood]}}>{mood}</span>
+              </div>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:600,color:'var(--fg)',marginBottom:2}}>
+                {MOOD_LABELS[mood]}
+              </div>
+              <div style={{display:'flex',gap:8,marginBottom:8}}>
+                <span style={{fontSize:12,color:'var(--muted)'}}>⚡ Энергия {energy}/10</span>
+                {totalTracked>0 && <span style={{fontSize:12,color:'var(--muted)'}}>⏱ {Math.floor(totalTracked/60)}ч {totalTracked%60}м</span>}
+              </div>
+              {/* Activity time bar */}
+              {Object.keys(actStats).length>0 && (
+                <div style={{height:6,borderRadius:3,overflow:'hidden',display:'flex',gap:1}}>
+                  {Object.entries(actStats).map(([id,mins])=>{
+                    const act=ACTIVITIES.find(a=>a.id===id);
+                    return act ? <div key={id} style={{
+                      flex:mins,background:act.color,borderRadius:2
+                    }}/> : null;
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Quick actions row */}
+          <div style={{borderTop:'1px solid var(--border)',display:'flex'}}>
+            {[
+              {icon:'😊',label:'Настроение',action:()=>setShowMoodSheet(true)},
+              {icon:'⚡',label:'События',action:()=>setShowEventSheet(true)},
+              {icon:'🌙',label:'Вечер',action:()=>{}},
+            ].map((item,i)=>(
+              <button key={i} onClick={item.action} style={{
+                flex:1,padding:'12px 0',display:'flex',flexDirection:'column',
+                alignItems:'center',gap:3,border:'none',background:'transparent',
+                cursor:'pointer',borderRight:i<2?'1px solid var(--border)':'none',
+                transition:'background 0.15s'
+              }}>
+                <span style={{fontSize:18}}>{item.icon}</span>
+                <span style={{fontSize:10,color:'var(--muted)'}}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Activity Grid */}
+      <div style={{padding:'14px 20px 0'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <span style={{fontSize:13,fontWeight:600,color:'var(--fg)'}}>Активности</span>
+          {activeActs.length>0 && (
+            <span style={{fontSize:12,color:'var(--primary)',fontWeight:500}}>
+              {activeActs.length} активны
+            </span>
+          )}
+        </div>
+        <div className="act-grid">
+          {ACTIVITIES.map(act=>{
+            const isActive = activeActs.includes(act.id);
+            const mins = actStats[act.id];
+            return (
+              <button key={act.id} onClick={()=>toggleAct(act.id)}
+                className="act-cell no-select"
+                style={{
+                  backgroundColor: isActive ? act.color+'18' : 'var(--card)',
+                  borderColor: isActive ? act.color : 'var(--border)',
+                  border:'1.5px solid',
+                  borderRadius:12,
+                }}>
+                <span className="act-emoji">{act.emoji}</span>
+                <span className="act-label" style={{color: isActive ? act.color : 'var(--muted)'}}>
+                  {act.label}
+                </span>
+                {mins && <span style={{fontSize:9,color:act.color+'aa'}}>{Math.floor(mins/60)>0?`${Math.floor(mins/60)}ч`:''}{mins%60>0?`${mins%60}м`:''}</span>}
+                {isActive && <ActivityDot active color={act.color}/>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Today's timeline */}
+      {today.snapshots.length > 0 && (
+        <div style={{margin:'14px 20px 0'}}>
+          <div className="card">
+            <div style={{padding:'14px 16px 10px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:13,fontWeight:600}}>Снимки дня</span>
+              <span style={{fontSize:11,color:'var(--muted)'}}>{today.snapshots.length} записей</span>
+            </div>
+            {today.snapshots.map((s,i)=>(
+              <div key={s.id} style={{
+                padding:'10px 16px',
+                borderBottom: i<today.snapshots.length-1 ? '1px solid var(--border)' : 'none',
+                display:'flex',alignItems:'center',gap:12
+              }}>
+                <div style={{
+                  width:36,height:36,borderRadius:10,
+                  background:MOOD_COLORS[s.mood],
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  color:'white',fontWeight:700,fontSize:14,flexShrink:0
+                }}>{s.mood}</div>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{fontSize:13,color:'var(--fg)'}}>😊 {s.mood} · ⚡ {s.energy}</span>
+                  </div>
+                  {s.comment && <div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>{s.comment}</div>}
+                </div>
+                <span style={{fontSize:11,color:'var(--muted)'}}>{s.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Events */}
+      {today.events.length > 0 && (
+        <div style={{margin:'14px 20px 0'}}>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:8}}>События дня</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+            {today.events.map(ev=>{
+              const e = EVENTS.find(x=>x.id===ev.id);
+              return e ? (
+                <div key={ev.id} style={{
+                  display:'inline-flex',alignItems:'center',gap:5,
+                  padding:'5px 10px',borderRadius:100,
+                  background:e.color+'15',color:e.color,
+                  fontSize:12,fontWeight:500,border:`1.5px solid ${e.color}30`
+                }}>
+                  {e.emoji} {e.label}
+                </div>
+              ) : null;
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Evening CTA */}
+      {hour >= 17 && (
+        <div style={{margin:'14px 20px 0'}}>
+          <div style={{
+            background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            borderRadius:16,padding:'16px',
+            display:'flex',alignItems:'center',gap:12
+          }}>
+            <div style={{fontSize:28}}>🌙</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:600,color:'white',marginBottom:2}}>Вечерний ритуал</div>
+              <div style={{fontSize:12,color:'rgba(255,255,255,0.7)'}}>Подведи итог дня</div>
+            </div>
+            <div style={{
+              background:'rgba(255,255,255,0.2)',
+              borderRadius:10,padding:'7px 12px',
+              fontSize:12,fontWeight:600,color:'white',cursor:'pointer'
+            }}>Начать →</div>
+          </div>
+        </div>
+      )}
+
+      {/* Mood Sheet */}
+      {showMoodSheet && (
+        <div className="sheet-overlay" onClick={()=>setShowMoodSheet(false)}>
+          <div className="sheet" onClick={e=>e.stopPropagation()}>
+            <div className="sheet-handle"/>
+            <div style={{fontSize:16,fontWeight:600,marginBottom:16}}>Снимок состояния</div>
+            
+            <div style={{marginBottom:16}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                <span style={{fontSize:13,color:'var(--muted)'}}>Настроение</span>
+                <span style={{fontSize:13,fontWeight:600,color:MOOD_COLORS[mood]}}>{mood} — {MOOD_LABELS[mood]}</span>
+              </div>
+              <div style={{display:'flex',gap:3,marginBottom:4}}>
+                {Array.from({length:11},(_,i)=>(
+                  <button key={i} onClick={()=>setMood(i)} style={{
+                    flex:1,height:12+i*1.8,borderRadius:3,border:'none',cursor:'pointer',
+                    background: i<=mood ? MOOD_COLORS[i] : 'var(--bg2)',
+                    opacity: i<=mood ? 1 : 0.4,
+                    transition:'all 0.15s'
+                  }}/>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:16}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                <span style={{fontSize:13,color:'var(--muted)'}}>Энергия</span>
+                <span style={{fontSize:13,fontWeight:600,color:'#f59e0b'}}>{energy}/10</span>
+              </div>
+              <div style={{display:'flex',gap:3}}>
+                {Array.from({length:11},(_,i)=>(
+                  <button key={i} onClick={()=>setEnergy(i)} style={{
+                    flex:1,height:12+i*1.8,borderRadius:3,border:'none',cursor:'pointer',
+                    background: i<=energy ? '#f59e0b' : 'var(--bg2)',
+                    opacity: i<=energy ? 1 : 0.4,
+                    transition:'all 0.15s'
+                  }}/>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:13,color:'var(--muted)',marginBottom:8}}>Что повлияло?</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {['💼 Работа','😴 Отдых','👥 Общение','🏃 Физическое','⚡ Событие','✨ Само по себе'].map(t=>(
+                  <div key={t} className="tag">{t}</div>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={()=>setShowMoodSheet(false)} style={{
+              width:'100%',padding:'14px',borderRadius:12,
+              background:'var(--primary)',color:'white',border:'none',
+              fontSize:15,fontWeight:600,cursor:'pointer'
+            }}>Записать</button>
+          </div>
+        </div>
+      )}
+
+      {/* Event Sheet */}
+      {showEventSheet && (
+        <div className="sheet-overlay" onClick={()=>setShowEventSheet(false)}>
+          <div className="sheet" onClick={e=>e.stopPropagation()}>
+            <div className="sheet-handle"/>
+            <div style={{fontSize:16,fontWeight:600,marginBottom:16}}>Отметить событие</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {EVENTS.map(e=>(
+                <button key={e.id} onClick={()=>setShowEventSheet(false)} style={{
+                  display:'inline-flex',alignItems:'center',gap:6,
+                  padding:'9px 14px',borderRadius:100,
+                  border:`1.5px solid ${e.color}40`,
+                  background:e.color+'0f',color:e.color,
+                  fontSize:13,fontWeight:500,cursor:'pointer'
+                }}>
+                  {e.emoji} {e.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FeedScreen({days}) {
+  const [view, setView] = useState('week');
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const weekDays = useMemo(()=>{
+    const today = new Date();
+    const dow = today.getDay()===0 ? 6 : today.getDay()-1;
+    const mon = new Date(today); mon.setDate(today.getDate()-dow+weekOffset*7);
+    return Array.from({length:7},(_,i)=>{
+      const d = new Date(mon); d.setDate(mon.getDate()+i);
+      const ds = d.toISOString().split('T')[0];
+      return {
+        date:ds, dayNum:d.getDate(),
+        dayName:['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i],
+        isToday: ds===new Date().toISOString().split('T')[0],
+        log: days.find(dl=>dl.date===ds)
+      };
+    });
+  },[days, weekOffset]);
+
+  const weekLabel = useMemo(()=>{
+    const first=new Date(weekDays[0].date), last=new Date(weekDays[6].date);
+    const opts={day:'numeric',month:'short'};
+    return `${first.toLocaleDateString('ru-RU',opts)} — ${last.toLocaleDateString('ru-RU',opts)}`;
+  },[weekDays]);
+
+  const summary = useMemo(()=>{
+    const logs = weekDays.filter(w=>w.log).map(w=>w.log);
+    if(!logs.length) return null;
+    const avgMood = (logs.reduce((s,d)=>s+d.mood,0)/logs.length).toFixed(1);
+    const avgSleep = (logs.reduce((s,d)=>s+d.sleep.hours,0)/logs.length).toFixed(1);
+    const totalSteps = logs.reduce((s,d)=>s+d.steps,0);
+    const trainDays = logs.filter(d=>d.training).length;
+    return {avgMood,avgSleep,totalSteps,trainDays,days:logs.length};
+  },[weekDays]);
+
+  return (
+    <div className="scrollable" style={{padding:'0 0 16px'}}>
+      <div style={{padding:'16px 20px 0'}}>
+        <div style={{fontSize:22,fontWeight:600,fontFamily:'Fraunces,serif',fontStyle:'italic',color:'var(--fg)',marginBottom:14}}>
+          Лента
+        </div>
+        <div className="seg-ctrl">
+          {['week','month'].map(v=>(
+            <button key={v} className={`seg-opt ${view===v?'active':''}`} onClick={()=>setView(v)}>
+              {v==='week'?'Неделя':'Месяц'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view==='week' && (
+        <div style={{padding:'14px 20px 0'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+            <button onClick={()=>setWeekOffset(wo=>wo-1)} style={{
+              width:32,height:32,borderRadius:8,border:'1px solid var(--border)',
+              background:'var(--card)',cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'
+            }}>‹</button>
+            <span style={{fontSize:13,color:'var(--muted)'}}>{weekLabel}</span>
+            <button onClick={()=>setWeekOffset(wo=>Math.min(0,wo+1))} style={{
+              width:32,height:32,borderRadius:8,border:'1px solid var(--border)',
+              background:'var(--card)',cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',
+              opacity:weekOffset>=0?0.3:1
+            }}>›</button>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:6}}>
+            {weekDays.map(wd=>(
+              <div key={wd.date} style={{
+                display:'flex',flexDirection:'column',alignItems:'center',
+                padding:'8px 4px',borderRadius:12,
+                background: wd.isToday ? 'var(--primary-light)' : wd.log ? MOOD_COLORS[wd.log.mood]+'10' : 'var(--card)',
+                border: wd.isToday ? '1.5px solid var(--primary)' : '1px solid var(--border)',
+                cursor: wd.log ? 'pointer' : 'default',
+                transition:'all 0.15s'
+              }}>
+                <span style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{wd.dayName}</span>
+                <span style={{fontSize:13,fontWeight:wd.isToday?700:400,color:wd.isToday?'var(--primary)':'var(--fg)',marginBottom:4}}>{wd.dayNum}</span>
+                {wd.log ? (
+                  <>
+                    <div style={{
+                      width:28,height:28,borderRadius:'50%',
+                      background:MOOD_COLORS[wd.log.mood],
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      color:'white',fontSize:11,fontWeight:700,marginBottom:3
+                    }}>{wd.log.mood}</div>
+                    {wd.log.activities.length>0 && (
+                      <div style={{display:'flex',gap:1,width:'100%',height:4,borderRadius:2,overflow:'hidden',marginTop:2}}>
+                        {wd.log.activities.slice(0,4).map((e,i)=>{
+                          const act=ACTIVITIES.find(a=>a.id===e.actId);
+                          return act ? <div key={i} style={{flex:1,background:act.color}}/> : null;
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{width:28,height:28,borderRadius:'50%',background:'var(--bg2)',marginBottom:3}}/>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {summary && (
+            <div className="card" style={{marginTop:12}}>
+              <div style={{padding:'14px 16px',borderBottom:'1px solid var(--border)'}}>
+                <span style={{fontSize:13,fontWeight:600}}>Сводка недели</span>
+              </div>
+              <div style={{padding:'12px 16px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                {[
+                  {icon:'😊',label:'Среднее настроение',value:`${summary.avgMood}/10`},
+                  {icon:'😴',label:'Средний сон',value:`${summary.avgSleep}ч`},
+                  {icon:'🚶',label:'Всего шагов',value:summary.totalSteps.toLocaleString('ru-RU')},
+                  {icon:'🏋️',label:'Тренировки',value:`${summary.trainDays} из ${summary.days}`},
+                ].map((s,i)=>(
+                  <div key={i} style={{display:'flex',gap:10,alignItems:'center'}}>
+                    <span style={{fontSize:20}}>{s.icon}</span>
+                    <div>
+                      <div style={{fontSize:11,color:'var(--muted)'}}>{s.label}</div>
+                      <div style={{fontSize:15,fontWeight:600,color:'var(--fg)'}}>{s.value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Energy balance */}
+              <div style={{padding:'12px 16px',borderTop:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:12,color:'var(--muted)',flex:1}}>Энергобаланс</span>
+                <span style={{fontSize:12,color:'#10b981'}}>⚡ 8.5ч заряжающих</span>
+                <span style={{fontSize:12,color:'var(--muted)'}}>vs</span>
+                <span style={{fontSize:12,color:'#f97316'}}>🔋 5.2ч истощающих</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {view==='month' && (
+        <div style={{padding:'14px 20px 0'}}>
+          <MonthView days={days}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MonthView({days}) {
+  const [offset, setOffset] = useState(0);
+  const {cells, monthLabel} = useMemo(()=>{
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + offset;
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month+1, 0);
+    const startPad = first.getDay()===0 ? 6 : first.getDay()-1;
+    const label = first.toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
+    const cells = [];
+    for(let i=startPad-1;i>=0;i--){const d=new Date(first);d.setDate(-i);cells.push({date:d.toISOString().split('T')[0],dayNum:d.getDate(),inMonth:false,log:null});}
+    for(let i=1;i<=last.getDate();i++){
+      const d=new Date(year,month,i);
+      const ds=d.toISOString().split('T')[0];
+      cells.push({date:ds,dayNum:i,inMonth:true,log:days.find(dl=>dl.date===ds)||null});
+    }
+    const rem=7-(cells.length%7);
+    if(rem<7)for(let i=1;i<=rem;i++){const d=new Date(year,month+1,i);cells.push({date:d.toISOString().split('T')[0],dayNum:i,inMonth:false,log:null});}
+    return {cells,monthLabel:label};
+  },[days,offset]);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  return (
+    <>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+        <button onClick={()=>setOffset(o=>o-1)} style={{width:32,height:32,borderRadius:8,border:'1px solid var(--border)',background:'var(--card)',cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
+        <span style={{fontSize:13,textTransform:'capitalize'}}>{monthLabel}</span>
+        <button onClick={()=>setOffset(o=>Math.min(0,o+1))} style={{width:32,height:32,borderRadius:8,border:'1px solid var(--border)',background:'var(--card)',cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',opacity:offset>=0?0.3:1}}>›</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4,marginBottom:4}}>
+        {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d=><div key={d} style={{textAlign:'center',fontSize:10,color:'var(--muted)',padding:'4px 0'}}>{d}</div>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4}}>
+        {cells.map((cell,i)=>(
+          <div key={i} style={{
+            borderRadius:8,padding:'4px 2px',minHeight:44,
+            display:'flex',flexDirection:'column',alignItems:'center',
+            opacity:cell.inMonth?1:0.3,cursor:cell.log?'pointer':'default',
+            background: cell.log ? MOOD_COLORS[cell.log.mood]+'18' : 'transparent',
+            border: cell.date===todayStr ? '1.5px solid var(--primary)' : '1px solid transparent',
+          }}>
+            <span style={{fontSize:10,color:cell.date===todayStr?'var(--primary)':'var(--fg)',fontWeight:cell.date===todayStr?700:400}}>{cell.dayNum}</span>
+            {cell.log && (
+              <div style={{width:24,height:24,borderRadius:'50%',background:MOOD_COLORS[cell.log.mood],display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:9,fontWeight:700,marginTop:2}}>{cell.log.mood}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function InsightsScreen({tweaks}) {
+  const [filter, setFilter] = useState('all');
+  const [expanded, setExpanded] = useState(null);
+
+  const filtered = filter==='all' ? MOCK_INSIGHTS : MOCK_INSIGHTS.filter(i=>i.category===filter);
+
+  const LAYER_COLORS = {base:'#6b7280',patterns:'#3b82f6',energy:'#f97316',lenses:'#8b5cf6'};
+  const LAYER_LABELS = {base:'База',patterns:'Паттерны',energy:'Энергия',lenses:'Линзы'};
+
+  return (
+    <div className="scrollable" style={{padding:'0 0 16px'}}>
+      <div style={{padding:'16px 20px 0'}}>
+        <div style={{fontSize:22,fontWeight:600,fontFamily:'Fraunces,serif',fontStyle:'italic',color:'var(--fg)',marginBottom:4}}>
+          Инсайты
+        </div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:12}}>Паттерны за последний месяц</div>
+
+        {/* Locked banner */}
+        <div style={{
+          padding:'10px 14px',borderRadius:12,
+          background:'linear-gradient(135deg,#f5f3ff,#ede9fe)',
+          border:'1px solid #ddd6fe',
+          marginBottom:12,
+          display:'flex',alignItems:'center',gap:10
+        }}>
+          <span style={{fontSize:18}}>🔒</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:600,color:'#6d28d9'}}>3 инсайта ждут тебя</div>
+            <div style={{fontSize:11,color:'#7c3aed'}}>Открой слои Паттерны и Линзы</div>
+          </div>
+          <div style={{fontSize:11,color:'#7c3aed',fontWeight:600}}>Открыть →</div>
+        </div>
+
+        {/* Category filters */}
+        <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:4}}>
+          {['all','sleep','body','psyche','productivity','relations'].map(cat=>(
+            <button key={cat} onClick={()=>setFilter(cat)} style={{
+              padding:'6px 12px',borderRadius:100,
+              border:`1.5px solid ${filter===cat?'var(--primary)':'var(--border)'}`,
+              background:filter===cat?'var(--primary)':'var(--card)',
+              color:filter===cat?'white':'var(--muted)',
+              fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500,
+              transition:'all 0.15s'
+            }}>
+              {cat==='all'?'Все':cat==='sleep'?'Сон':cat==='body'?'Тело':cat==='psyche'?'Психика':cat==='productivity'?'Продуктивность':'Отношения'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{padding:'12px 20px 0',display:'flex',flexDirection:'column',gap:10}}>
+        {filtered.map(insight=>(
+          <InsightCard
+            key={insight.id}
+            insight={insight}
+            isExpanded={expanded===insight.id}
+            onToggle={()=>setExpanded(expanded===insight.id?null:insight.id)}
+            layerColors={LAYER_COLORS}
+            layerLabels={LAYER_LABELS}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function InsightCard({insight, isExpanded, onToggle, layerColors, layerLabels}) {
+  const lc = layerColors[insight.layer] || '#6b7280';
+  const isLocked = insight.locked;
+
+  return (
+    <div style={{
+      borderRadius:16,border:'1px solid var(--border)',
+      background: isLocked ? 'var(--card)' : 'var(--card)',
+      borderLeft:`3px solid ${lc}`,
+      overflow:'hidden',
+      filter: isLocked ? 'none' : 'none',
+    }}>
+      <button onClick={onToggle} style={{
+        width:'100%',padding:'14px 16px',textAlign:'left',
+        border:'none',background:'transparent',cursor:'pointer',
+        display:'flex',alignItems:'flex-start',gap:12
+      }}>
+        <div style={{
+          width:40,height:40,borderRadius:12,
+          background:insight.color+'18',
+          display:'flex',alignItems:'center',justifyContent:'center',
+          fontSize:20,flexShrink:0
+        }}>{insight.emoji}</div>
+        <div style={{flex:1,minWidth:0}}>
+          {isLocked && (
+            <div style={{
+              fontSize:10,color:lc,fontWeight:600,
+              background:lc+'18',padding:'2px 6px',borderRadius:4,
+              display:'inline-block',marginBottom:4
+            }}>🔒 {layerLabels[insight.layer]}</div>
+          )}
+          <div style={{
+            fontSize:14,fontWeight:600,color:'var(--fg)',
+            marginBottom:4,lineHeight:1.3,
+            filter:isLocked?'blur(3px)':'none'
+          }}>{insight.title}</div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:6,filter:isLocked?'blur(2px)':'none'}}>
+            {insight.desc}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{
+              fontSize:10,padding:'2px 7px',borderRadius:4,
+              background:lc+'15',color:lc,fontWeight:500
+            }}>{layerLabels[insight.layer]}</div>
+            {insight.obs && <span style={{fontSize:10,color:'var(--muted)'}}>{insight.obs} дн.</span>}
+            <div style={{flex:1,height:4,borderRadius:2,background:'var(--bg2)',overflow:'hidden'}}>
+              <div style={{height:'100%',borderRadius:2,background:insight.color,width:`${insight.strength*100}%`}}/>
+            </div>
+            <span style={{fontSize:10,color:'var(--muted)'}}>{Math.round(insight.strength*100)}%</span>
+          </div>
+        </div>
+        <span style={{color:'var(--muted)',fontSize:18,flexShrink:0}}>{isExpanded?'↑':'↓'}</span>
+      </button>
+
+      {isExpanded && !isLocked && (
+        <div style={{padding:'0 16px 16px',borderTop:'1px solid var(--border)',animation:'fadeIn 0.2s ease'}}>
+          <div style={{marginTop:12,marginBottom:12}}>
+            <MiniChart data={insight.chart} color={insight.color}/>
+            <div style={{display:'flex',justifyContent:'space-around',marginTop:4}}>
+              {insight.labels.map((l,i)=>(
+                <span key={i} style={{fontSize:9,color:'var(--muted)',textAlign:'center'}}>{l}</span>
+              ))}
+            </div>
+          </div>
+          <div style={{
+            padding:'10px 12px',borderRadius:10,
+            background:insight.color+'10',
+            fontSize:12,color:'var(--fg)',lineHeight:1.5
+          }}>
+            💡 {insight.advice}
+          </div>
+        </div>
+      )}
+
+      {isLocked && (
+        <div style={{padding:'0 16px 14px'}}>
+          <button style={{
+            width:'100%',padding:'10px',borderRadius:10,
+            background:`linear-gradient(135deg,${lc},${lc}cc)`,
+            color:'white',border:'none',fontSize:12,fontWeight:600,cursor:'pointer'
+          }}>Открыть слой {layerLabels[insight.layer]} →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EveningScreen() {
+  const [step, setStep] = useState(0);
+  const [mood, setMood] = useState(7);
+  const [energy, setEnergy] = useState(6);
+  const [sleep, setSleep] = useState(7.5);
+  const [sleepQ, setSleepQ] = useState(7);
+  const [reflection, setReflection] = useState('');
+  const [virtue, setVirtue] = useState(null);
+  const [steps, setSteps] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const STEPS = ['Обзор дня','Рефлексия'];
+  const VIRTUES = [
+    {id:'wisdom',name:'Мудрость',emoji:'🦉',color:'#6366f1'},
+    {id:'temperance',name:'Умеренность',emoji:'⚖️',color:'#14b8a6'},
+    {id:'courage',name:'Мужество',emoji:'🦁',color:'#ef4444'},
+    {id:'justice',name:'Справедливость',emoji:'🤝',color:'#f59e0b'},
+  ];
+
+  if (saved) return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flex:1,padding:32,textAlign:'center',animation:'fadeIn 0.4s ease'}}>
+      <div style={{fontSize:64,marginBottom:16}}>✨</div>
+      <div style={{fontSize:22,fontWeight:700,fontFamily:'Fraunces,serif',fontStyle:'italic',color:'var(--fg)',marginBottom:8}}>День сохранён</div>
+      <div style={{fontSize:14,color:'var(--muted)',lineHeight:1.6}}>Рефлексия добавлена в дневник. Хорошей ночи! 🌙</div>
+    </div>
+  );
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+      {/* Header */}
+      <div style={{padding:'16px 20px 12px'}}>
+        <div style={{fontSize:22,fontWeight:600,fontFamily:'Fraunces,serif',fontStyle:'italic',color:'var(--fg)',marginBottom:4}}>
+          Вечерний ритуал
+        </div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:12}}>Подведи итоги дня</div>
+        <div style={{display:'flex',gap:4}}>
+          {STEPS.map((_,i)=>(
+            <div key={i} className="step-dot"
+              style={{background:i<=step?'var(--indigo)':'var(--bg2)'}}/>
+          ))}
+        </div>
+      </div>
+
+      <div className="scrollable" style={{flex:1,padding:'0 20px'}}>
+        {step===0 && (
+          <div style={{display:'flex',flexDirection:'column',gap:14,animation:'slideUp 0.3s ease'}}>
+            {/* Mood & Energy */}
+            <div className="card">
+              <div style={{padding:'16px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                  <div style={{width:36,height:36,borderRadius:10,background:MOOD_COLORS[mood]+'20',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>😊</div>
+                  <span style={{fontSize:14,fontWeight:600}}>Итоговое состояние</span>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                    <span style={{fontSize:12,color:'var(--muted)'}}>Настроение</span>
+                    <span style={{fontSize:12,fontWeight:600,color:MOOD_COLORS[mood]}}>{mood} — {MOOD_LABELS[mood]}</span>
+                  </div>
+                  <div style={{display:'flex',gap:2}}>
+                    {Array.from({length:11},(_,i)=>(
+                      <button key={i} onClick={()=>setMood(i)} style={{
+                        flex:1,height:10+i*2,borderRadius:3,border:'none',cursor:'pointer',
+                        background:i<=mood?MOOD_COLORS[i]:'var(--bg2)',
+                        opacity:i<=mood?1:0.35,transition:'all 0.15s'
+                      }}/>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                    <span style={{fontSize:12,color:'var(--muted)'}}>Энергия</span>
+                    <span style={{fontSize:12,fontWeight:600,color:'#f59e0b'}}>{energy}/10</span>
+                  </div>
+                  <div style={{display:'flex',gap:2}}>
+                    {Array.from({length:11},(_,i)=>(
+                      <button key={i} onClick={()=>setEnergy(i)} style={{
+                        flex:1,height:10+i*2,borderRadius:3,border:'none',cursor:'pointer',
+                        background:i<=energy?'#f59e0b':'var(--bg2)',
+                        opacity:i<=energy?1:0.35,transition:'all 0.15s'
+                      }}/>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sleep */}
+            <div className="card" style={{padding:'16px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                <span style={{fontSize:18}}>😴</span>
+                <span style={{fontSize:14,fontWeight:600}}>Сон</span>
+              </div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                <span style={{fontSize:13,color:'var(--muted)'}}>Сколько спал?</span>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <button onClick={()=>setSleep(s=>Math.max(0,s-0.5))} style={{width:32,height:32,borderRadius:8,border:'1px solid var(--border)',background:'var(--bg2)',cursor:'pointer',fontSize:16}}>−</button>
+                  <span style={{fontSize:16,fontWeight:600,minWidth:40,textAlign:'center'}}>{sleep}ч</span>
+                  <button onClick={()=>setSleep(s=>Math.min(14,s+0.5))} style={{width:32,height:32,borderRadius:8,border:'1px solid var(--border)',background:'var(--bg2)',cursor:'pointer',fontSize:16}}>+</button>
+                </div>
+              </div>
+              <div>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                  <span style={{fontSize:12,color:'var(--muted)'}}>Качество сна</span>
+                  <span style={{fontSize:12,fontWeight:600,color:'#6366f1'}}>{sleepQ}/10</span>
+                </div>
+                <input type="range" min={0} max={10} value={sleepQ} onChange={e=>setSleepQ(+e.target.value)}
+                  style={{accentColor:'#6366f1'}}/>
+              </div>
+            </div>
+
+            {/* Steps */}
+            <div className="card" style={{padding:'16px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                <span style={{fontSize:18}}>🚶</span>
+                <span style={{fontSize:14,fontWeight:600}}>Шаги</span>
+              </div>
+              <input type="number" value={steps} onChange={e=>setSteps(e.target.value)}
+                placeholder="0" style={{
+                  width:'100%',padding:'10px 12px',borderRadius:10,
+                  border:'1.5px solid var(--border)',background:'var(--bg2)',
+                  fontSize:16,fontFamily:'DM Sans,sans-serif',outline:'none'
+                }}/>
+            </div>
+          </div>
+        )}
+
+        {step===1 && (
+          <div style={{display:'flex',flexDirection:'column',gap:14,animation:'slideUp 0.3s ease'}}>
+            {/* Virtue lens */}
+            <div className="card" style={{padding:'16px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                <span style={{fontSize:18}}>🏛️</span>
+                <span style={{fontSize:14,fontWeight:600}}>Стоические добродетели</span>
+              </div>
+              <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Какая добродетель проявилась сегодня?</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                {VIRTUES.map(v=>(
+                  <button key={v.id} onClick={()=>setVirtue(virtue===v.id?null:v.id)} style={{
+                    padding:'12px',borderRadius:12,
+                    border:`2px solid ${virtue===v.id?v.color:'var(--border)'}`,
+                    background:virtue===v.id?v.color+'15':'var(--card)',
+                    cursor:'pointer',textAlign:'center',transition:'all 0.15s'
+                  }}>
+                    <div style={{fontSize:22,marginBottom:4}}>{v.emoji}</div>
+                    <div style={{fontSize:12,fontWeight:600,color:virtue===v.id?v.color:'var(--fg)'}}>{v.name}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* PERMA quick */}
+            <div className="card" style={{padding:'16px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+                <span style={{fontSize:18}}>🌟</span>
+                <span style={{fontSize:14,fontWeight:600}}>PERMA</span>
+              </div>
+              {[
+                {id:'positive',label:'Позитивные эмоции',color:'#f59e0b'},
+                {id:'engagement',label:'Вовлечённость',color:'#6366f1'},
+                {id:'meaning',label:'Смысл',color:'#8b5cf6'},
+              ].map(item=>{
+                const [val,setVal] = useState(5);
+                return (
+                  <div key={item.id} style={{marginBottom:12}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                      <span style={{fontSize:12,color:'var(--muted)'}}>{item.label}</span>
+                      <span style={{fontSize:12,fontWeight:600,color:item.color}}>{val}/10</span>
+                    </div>
+                    <input type="range" min={0} max={10} value={val} onChange={e=>setVal(+e.target.value)}
+                      style={{accentColor:item.color}}/>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Reflection */}
+            <div className="card" style={{padding:'16px'}}>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>Почему день был таким?</div>
+              <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Свободная рефлексия — только для тебя</div>
+              <textarea value={reflection} onChange={e=>setReflection(e.target.value)}
+                placeholder="Опиши ключевые события, мысли, выводы…"
+                rows={5} style={{
+                  width:'100%',padding:'12px',borderRadius:12,
+                  border:'1.5px solid var(--border)',background:'var(--bg2)',
+                  fontSize:14,fontFamily:'DM Sans,sans-serif',
+                  outline:'none',resize:'none',lineHeight:1.6,
+                  color:'var(--fg)'
+                }}/>
+              <div style={{fontSize:11,color:'var(--muted)',marginTop:6}}>
+                Можешь пропустить — но рефлексия даёт лучшие инсайты.
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer nav */}
+      <div style={{padding:'14px 20px',display:'flex',gap:10,borderTop:'1px solid var(--border)',background:'var(--card)'}}>
+        {step>0 && (
+          <button onClick={()=>setStep(s=>s-1)} style={{
+            padding:'13px 20px',borderRadius:12,
+            border:'1.5px solid var(--border)',background:'var(--card)',
+            fontSize:14,fontWeight:500,cursor:'pointer',color:'var(--muted)'
+          }}>← Назад</button>
+        )}
+        {step<STEPS.length-1 ? (
+          <button onClick={()=>setStep(s=>s+1)} style={{
+            flex:1,padding:'13px',borderRadius:12,
+            background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            color:'white',border:'none',fontSize:15,fontWeight:600,cursor:'pointer'
+          }}>Далее →</button>
+        ) : (
+          <button onClick={()=>setSaved(true)} style={{
+            flex:1,padding:'13px',borderRadius:12,
+            background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            color:'white',border:'none',fontSize:15,fontWeight:600,cursor:'pointer'
+          }}>Сохранить день ✓</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProfileScreen({tweaks, setTweaks}) {
+  const [darkMode, setDarkMode] = useState(false);
+  const [reminder, setReminder] = useState(true);
+  const [activeLenses, setActiveLenses] = useState(['stoic-virtues','jungian']);
+
+  const LENSES = [
+    {id:'stoic-virtues',name:'Стоические добродетели',desc:'Мудрость, Умеренность, Мужество, Справедливость',color:'#14b8a6',emoji:'🏛️'},
+    {id:'jungian',name:'Архетипы',desc:'Автоопределение: Мудрец, Правитель, Герой, Искатель',color:'#6366f1',emoji:'🧠'},
+    {id:'act-values',name:'Ценности ACT',desc:'Жить согласно своим глубинным ценностям',color:'#10b981',emoji:'💚'},
+    {id:'perma',name:'PERMA',desc:'5 элементов процветания по позитивной психологии',color:'#f59e0b',emoji:'🌟'},
+    {id:'mindfulness',name:'Качество внимания',desc:'Присутствие, реакция, автопилот, принятие',color:'#8b5cf6',emoji:'🧘'},
+  ];
+
+  const toggleLens = (id) => setActiveLenses(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+
+  return (
+    <div className="scrollable" style={{padding:'0 0 24px'}}>
+      <div style={{padding:'16px 20px 0'}}>
+        <div style={{fontSize:22,fontWeight:600,fontFamily:'Fraunces,serif',fontStyle:'italic',color:'var(--fg)',marginBottom:14}}>
+          Профиль
+        </div>
+
+        {/* User card */}
+        <div className="card" style={{padding:'16px',marginBottom:14}}>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+            <div style={{
+              width:52,height:52,borderRadius:16,
+              background:'linear-gradient(135deg,var(--primary),#e88a4a)',
+              display:'flex',alignItems:'center',justifyContent:'center',
+              fontSize:22,flexShrink:0
+            }}>🧑</div>
+            <div style={{flex:1}}>
+              <input defaultValue="Пользователь" style={{
+                fontSize:16,fontWeight:600,color:'var(--fg)',
+                background:'transparent',border:'none',outline:'none',width:'100%'
+              }}/>
+              <div style={{fontSize:12,color:'var(--muted)'}}>30 дней в дневнике · Стрик 7 🔥</div>
+            </div>
+          </div>
+          {/* Goals */}
+          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+            {['Настроение','Продуктивность','Отношения'].map(g=>(
+              <div key={g} style={{
+                padding:'4px 10px',borderRadius:100,
+                background:'var(--primary-light)',color:'var(--primary)',
+                fontSize:11,fontWeight:500
+              }}>{g}</div>
+            ))}
+          </div>
+        </div>
+
+        {/* Lenses */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:13,fontWeight:600,color:'var(--fg)',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+            🔮 Мои линзы
+            <span style={{fontSize:10,color:'var(--muted)',fontWeight:400}}>— отображаются в ритуале</span>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {LENSES.map(lens=>{
+              const isActive = activeLenses.includes(lens.id);
+              return (
+                <div key={lens.id} style={{
+                  background:'var(--card)',borderRadius:14,
+                  border:`1.5px solid ${isActive?lens.color+'50':'var(--border)'}`,
+                  padding:'12px 14px',
+                  display:'flex',alignItems:'center',gap:12,
+                  background:isActive?lens.color+'06':'var(--card)',
+                  transition:'all 0.2s'
+                }}>
+                  <div style={{
+                    width:36,height:36,borderRadius:10,
+                    background:lens.color+'20',
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    fontSize:18,flexShrink:0
+                  }}>{lens.emoji}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:600,color:isActive?lens.color:'var(--fg)'}}>{lens.name}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>{lens.desc}</div>
+                  </div>
+                  <div className={`toggle ${isActive?'on':''}`}
+                    style={isActive?{background:lens.color}:{}}
+                    onClick={()=>toggleLens(lens.id)}/>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Settings */}
+        <div className="card" style={{marginBottom:14}}>
+          <div style={{padding:'14px 16px',borderBottom:'1px solid var(--border)'}}>
+            <span style={{fontSize:13,fontWeight:600}}>Настройки</span>
+          </div>
+          {[
+            {icon:'🌙',label:'Тёмная тема',val:darkMode,set:setDarkMode},
+            {icon:'🔔',label:'Напоминание в 21:00',val:reminder,set:setReminder},
+          ].map((s,i)=>(
+            <div key={i} style={{
+              padding:'14px 16px',
+              borderBottom:i===0?'1px solid var(--border)':'none',
+              display:'flex',alignItems:'center',justifyContent:'space-between'
+            }}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <span style={{fontSize:18}}>{s.icon}</span>
+                <span style={{fontSize:13,color:'var(--fg)'}}>{s.label}</span>
+              </div>
+              <div className={`toggle ${s.val?'on':''}`} onClick={()=>s.set(!s.val)}/>
+            </div>
+          ))}
+        </div>
+
+        {/* Tweaks exposed */}
+        <div className="card">
+          <div style={{padding:'14px 16px',borderBottom:'1px solid var(--border)'}}>
+            <span style={{fontSize:13,fontWeight:600}}>Вид приложения</span>
+          </div>
+          {[
+            {label:'Утреннее намерение',key:'showIntent'},
+            {label:'Показывать Day Score',key:'showScore'},
+          ].map((item,i)=>(
+            <div key={i} style={{
+              padding:'14px 16px',
+              borderBottom:i===0?'1px solid var(--border)':'none',
+              display:'flex',alignItems:'center',justifyContent:'space-between'
+            }}>
+              <span style={{fontSize:13,color:'var(--fg)'}}>{item.label}</span>
+              <div className={`toggle ${tweaks[item.key]?'on':''}`} onClick={()=>setTweaks(t=>({...t,[item.key]:!t[item.key]}))}/>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TWEAKS PANEL ───────────────────────────────────────────────────────────
+
+function TweaksPanel({tweaks, setTweaks, onClose}) {
+  return (
+    <div className="tweaks-panel">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+        <span style={{fontSize:13,fontWeight:700,color:'var(--fg)'}}>Tweaks</span>
+        <button onClick={onClose} style={{border:'none',background:'none',cursor:'pointer',fontSize:18,color:'var(--muted)'}}>×</button>
+      </div>
+      {/* Сегментный переключатель режима лэйаута */}
+      <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Режим</div>
+      <div style={{display:'flex',background:'var(--bg2)',borderRadius:10,padding:3,marginBottom:14,gap:2}}>
+        {[
+          {id:'sanctuary',label:'Святилище'},
+          {id:'bento',label:'Бенто'},
+        ].map(opt=>(
+          <button key={opt.id} onClick={()=>setTweaks(t=>({...t,layoutMode:opt.id}))} style={{
+            flex:1,padding:'7px 0',borderRadius:8,textAlign:'center',
+            fontSize:11,cursor:'pointer',border:'none',fontWeight:500,
+            background: tweaks.layoutMode===opt.id ? 'white' : 'transparent',
+            color: tweaks.layoutMode===opt.id ? 'var(--fg)' : 'var(--muted)',
+            boxShadow: tweaks.layoutMode===opt.id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+          }}>{opt.label}</button>
+        ))}
+      </div>
+      {[
+        {label:'Намерение',key:'showIntent'},
+        {label:'Day Score',key:'showScore'},
+        {label:'Тёмный фон',key:'darkBg'},
+      ].map(item=>(
+        <div key={item.key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <span style={{fontSize:12,color:'var(--fg)'}}>{item.label}</span>
+          <div className={`toggle ${tweaks[item.key]?'on':''}`}
+            style={{width:36,height:22,transform:'scale(0.85)'}}
+            onClick={()=>setTweaks(t=>({...t,[item.key]:!t[item.key]}))}/>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── APP ────────────────────────────────────────────────────────────────────
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "showIntent": false,
+  "showScore": false,
+  "darkBg": false,
+  "layoutMode": "bento"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [screen, setScreen] = useState('now');
+  const [days] = useState(INITIAL_DAYS);
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+  const [showTweaks, setShowTweaks] = useState(false);
+
+  useEffect(()=>{
+    const handler = (e)=>{
+      if(e.data?.type==='__activate_edit_mode') setShowTweaks(true);
+      if(e.data?.type==='__deactivate_edit_mode') setShowTweaks(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({type:'__edit_mode_available'},'*');
+    return ()=>window.removeEventListener('message', handler);
+  },[]);
+
+  useEffect(()=>{
+    if(!showTweaks) window.parent.postMessage({type:'__edit_mode_dismissed'},'*');
+  },[showTweaks]);
+
+  const NAV = [
+    {id:'now',icon:'⊙',label:'Сейчас'},
+    {id:'feed',icon:'◫',label:'Лента'},
+    {id:'insights',icon:'◈',label:'Инсайты'},
+    {id:'evening',icon:'◑',label:'Вечер'},
+    {id:'profile',icon:'◉',label:'Профиль'},
+  ];
+
+  const now = new Date();
+  const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+  return (
+    <div className="phone-shell">
+      <div className="phone-screen" style={{background: tweaks.darkBg ? '#1a1a2e' : (tweaks.layoutMode==='bento' ? '#ECE7DF' : 'var(--bg)')}}>
+        <div className="notch"/>
+        <div className="status-bar">
+          <span className="status-time">{timeStr}</span>
+          <div className="status-icons">
+            <svg viewBox="0 0 24 24"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
+            <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M22 11v4" stroke="currentColor" strokeWidth="2"/></svg>
+          </div>
+        </div>
+
+        <div className="screen-content" data-screen-label={screen}>
+          {screen==='now' && (tweaks.layoutMode==='bento' && window.BentoNowScreen
+            ? <window.BentoNowScreen days={days} tweaks={tweaks}/>
+            : <NowScreen days={days} setDays={()=>{}} tweaks={tweaks}/>)}
+          {screen==='feed' && (tweaks.layoutMode==='bento' && window.BentoFeedScreen
+            ? <window.BentoFeedScreen days={days}/>
+            : <FeedScreen days={days}/>)}
+          {screen==='insights' && (tweaks.layoutMode==='bento' && window.BentoInsightsScreen
+            ? <window.BentoInsightsScreen/>
+            : <InsightsScreen tweaks={tweaks}/>)}
+          {screen==='evening' && <EveningScreen/>}
+          {screen==='profile' && <ProfileScreen tweaks={tweaks} setTweaks={setTweaks}/>}
+        </div>
+
+        <div className="bottom-nav">
+          {NAV.map(item=>(
+            <button key={item.id} className={`nav-item ${screen===item.id?'active':''}`}
+              onClick={()=>setScreen(item.id)}>
+              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="home-indicator"><div className="home-indicator-bar"/></div>
+
+        {showTweaks && (
+          <TweaksPanel tweaks={tweaks} setTweaks={(updater)=>{
+            const next = typeof updater==='function' ? updater(tweaks) : updater;
+            setTweaks(next);
+            window.parent.postMessage({type:'__edit_mode_set_keys',edits:next},'*');
+          }} onClose={()=>{setShowTweaks(false);window.parent.postMessage({type:'__edit_mode_dismissed'},'*');}}/>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Экспорт констант и хелперов в window — чтобы bento.jsx мог их использовать
+Object.assign(window, {
+  MOOD_COLORS, MOOD_LABELS, ACTIVITIES, EVENTS, MOCK_INSIGHTS,
+  MoodRing, MiniChart, ActivityDot,
+});
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<div id="root"></div>
+</body>
+</html>

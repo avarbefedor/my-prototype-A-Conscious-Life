@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Варианты главного экрана</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:ital,opsz,wght@1,9..144,300;1,9..144,400;0,9..144,400&family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #111; font-family: 'DM Sans', sans-serif; }
+.phone {
+  width: 360px; height: 720px; background: #0d0d0d;
+  border-radius: 44px; padding: 10px; flex-shrink: 0;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.07);
+}
+.screen {
+  width: 100%; height: 100%; border-radius: 36px;
+  overflow: hidden; display: flex; flex-direction: column; position: relative;
+}
+.notch {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 100px; height: 28px; background: #0d0d0d;
+  border-radius: 0 0 16px 16px; z-index: 10;
+}
+.sb {
+  height: 42px; display: flex; align-items: flex-end;
+  justify-content: space-between; padding: 0 18px 6px;
+  flex-shrink: 0; position: relative; z-index: 5; font-size: 13px; font-weight: 600;
+}
+.scr { flex: 1; overflow-y: auto; }
+.scr::-webkit-scrollbar { display: none; }
+.hb { height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.hbi { width: 90px; height: 4px; border-radius: 2px; opacity: 0.2; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+@keyframes fadein { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const now = new Date();
+const TIME = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+const DATE_RU = now.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+
+const MC = {0:'#ef4444',1:'#ef4444',2:'#f97316',3:'#f97316',4:'#eab308',5:'#eab308',6:'#84cc16',7:'#22c55e',8:'#22c55e',9:'#10b981',10:'#059669'};
+const ML = {0:'ужасно',1:'очень плохо',2:'плохо',3:'тяжело',4:'ниже среднего',5:'нормально',6:'неплохо',7:'хорошо',8:'очень хорошо',9:'отлично',10:'великолепно'};
+
+const ACTS = [
+  {id:'work',label:'Работа',emoji:'💼',color:'#3b82f6'},
+  {id:'sport',label:'Спорт',emoji:'🏋️',color:'#10b981'},
+  {id:'read',label:'Чтение',emoji:'📚',color:'#8b5cf6'},
+  {id:'social',label:'Соцсети',emoji:'📱',color:'#f43f5e'},
+  {id:'friends',label:'Общение',emoji:'👥',color:'#f59e0b'},
+  {id:'walk',label:'Прогулка',emoji:'🚶',color:'#22c55e'},
+  {id:'rest',label:'Отдых',emoji:'😴',color:'#94a3b8'},
+  {id:'meditate',label:'Медитация',emoji:'🧘',color:'#a78bfa'},
+];
+
+function Phone({bg, fg='#1C1917', children}) {
+  return (
+    <div className="phone">
+      <div className="screen" style={{background:bg}}>
+        <div className="notch"/>
+        <div className="sb" style={{color:fg, background:bg}}>
+          <span>{TIME}</span>
+          <div style={{display:'flex',gap:4,alignItems:'center',fontSize:11}}>
+            <span>▲▲▲</span>
+            <span style={{border:`1.5px solid ${fg}`,borderRadius:3,padding:'1px 4px',fontSize:10}}>87%</span>
+          </div>
+        </div>
+        <div className="scr">{children}</div>
+        <div className="hb"><div className="hbi" style={{background:fg}}/></div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════
+// 1. DAYLIO — Минимализм, emoji-first
+// ════════════════════════════════════════
+function V1_Daylio() {
+  const [mood, setMood] = useState(7);
+  const [acts, setActs] = useState(['sport','read']);
+  const toggle = id => setActs(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]);
+
+  const FACES = [{v:1,e:'😢'},{v:3,e:'😕'},{v:5,e:'😐'},{v:7,e:'🙂'},{v:9,e:'😄'}];
+
+  return (
+    <Phone bg="#FFFFFF">
+      <div style={{padding:'12px 20px 20px'}}>
+        {/* Date + streak */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+          <div>
+            <div style={{fontSize:11,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'0.06em'}}>{DATE_RU}</div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:4,background:'#fff7ed',padding:'4px 10px',borderRadius:100}}>
+            <span style={{fontSize:14}}>🔥</span>
+            <span style={{fontSize:12,fontWeight:700,color:'#ea580c'}}>7</span>
+          </div>
+        </div>
+
+        {/* Mood question */}
+        <div style={{textAlign:'center',marginBottom:24}}>
+          <div style={{fontSize:18,fontWeight:700,color:'#111',marginBottom:18}}>Как ты сегодня?</div>
+          <div style={{display:'flex',justifyContent:'space-between',padding:'0 4px'}}>
+            {FACES.map(f=>(
+              <button key={f.v} onClick={()=>setMood(f.v)} style={{
+                border:'none',background:'transparent',cursor:'pointer',
+                display:'flex',flexDirection:'column',alignItems:'center',gap:5,
+                transition:'transform 0.15s',
+                transform: mood===f.v ? 'scale(1.2)' : 'scale(1)',
+              }}>
+                <div style={{
+                  width:50,height:50,borderRadius:'50%',fontSize:28,
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  background: mood===f.v ? MC[f.v]+'22' : '#f9fafb',
+                  border: `2.5px solid ${mood===f.v ? MC[f.v] : 'transparent'}`,
+                  transition:'all 0.2s'
+                }}>{f.e}</div>
+                <span style={{fontSize:9,color:mood===f.v?MC[f.v]:'#d1d5db',fontWeight:mood===f.v?700:400}}>
+                  {ML[f.v]}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Activities */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:13,fontWeight:600,color:'#374151',marginBottom:12}}>Что делал?</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {ACTS.map(a=>{
+              const on = acts.includes(a.id);
+              return (
+                <button key={a.id} onClick={()=>toggle(a.id)} style={{
+                  display:'flex',alignItems:'center',gap:6,
+                  padding:'8px 14px',borderRadius:100,fontSize:13,fontWeight:500,
+                  border:`2px solid ${on?a.color:'#e5e7eb'}`,
+                  background: on ? a.color+'15' : '#fafafa',
+                  color: on ? a.color : '#9ca3af',
+                  cursor:'pointer',transition:'all 0.15s'
+                }}>
+                  <span style={{fontSize:16}}>{a.emoji}</span>{a.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Week strip */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:11,fontWeight:600,color:'#9ca3af',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.06em'}}>Эта неделя</div>
+          <div style={{display:'flex',gap:4}}>
+            {[7,8,null,9,7,6,null].map((m,i)=>(
+              <div key={i} style={{flex:1,height:28,borderRadius:8,
+                background:m?MC[m]:'#f3f4f6',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                color:'white',fontSize:10,fontWeight:700
+              }}>{m||''}</div>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:4,marginTop:3}}>
+            {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d=>(
+              <div key={d} style={{flex:1,textAlign:'center',fontSize:8,color:'#d1d5db'}}>{d}</div>
+            ))}
+          </div>
+        </div>
+
+        <button style={{
+          width:'100%',padding:'14px',borderRadius:14,
+          background:MC[mood],color:'white',border:'none',
+          fontSize:14,fontWeight:700,cursor:'pointer',
+          boxShadow:`0 4px 20px ${MC[mood]}55`
+        }}>Сохранить +</button>
+      </div>
+    </Phone>
+  );
+}
+
+// ════════════════════════════════════════
+// 2. STOIC — Тёмный, медитативный, текстовый
+// ════════════════════════════════════════
+function V2_Stoic() {
+  const [virtue, setVirtue] = useState('courage');
+  const [intent, setIntent] = useState('');
+
+  const VIRTUES = [
+    {id:'wisdom',name:'Мудрость',emoji:'🦉',color:'#818cf8'},
+    {id:'courage',name:'Мужество',emoji:'🦁',color:'#f87171'},
+    {id:'temperance',name:'Умеренность',emoji:'⚖️',color:'#34d399'},
+    {id:'justice',name:'Справедливость',emoji:'🤝',color:'#fbbf24'},
+  ];
+
+  return (
+    <Phone bg="#1a1612" fg="#f5f0e8">
+      <div style={{padding:'8px 22px 20px'}}>
+        {/* Label */}
+        <div style={{fontSize:10,color:'#a8956c',letterSpacing:'0.12em',textTransform:'uppercase',textAlign:'center',marginBottom:14}}>
+          УТРЕННИЙ РИТУАЛ
+        </div>
+
+        {/* Quote */}
+        <div style={{
+          fontFamily:'Fraunces,Georgia,serif',fontStyle:'italic',fontWeight:300,
+          fontSize:16,color:'#f5f0e8',lineHeight:1.7,
+          borderLeft:'2px solid #a8956c',paddingLeft:14,marginBottom:20
+        }}>
+          «Начни с намерения — и день станет осознанным.»
+        </div>
+
+        {/* Virtue picker */}
+        <div style={{
+          background:'rgba(255,255,255,0.04)',borderRadius:16,
+          padding:'14px',marginBottom:14,
+          border:'1px solid rgba(255,255,255,0.07)'
+        }}>
+          <div style={{fontSize:10,color:'#a8956c',letterSpacing:'0.08em',marginBottom:12}}>ДОБРОДЕТЕЛЬ НА СЕГОДНЯ</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {VIRTUES.map(v=>{
+              const on = virtue===v.id;
+              return (
+                <button key={v.id} onClick={()=>setVirtue(v.id)} style={{
+                  padding:'10px 8px',borderRadius:12,cursor:'pointer',
+                  border:`1.5px solid ${on?v.color:'rgba(255,255,255,0.07)'}`,
+                  background: on ? v.color+'20' : 'rgba(255,255,255,0.03)',
+                  display:'flex',alignItems:'center',gap:8,transition:'all 0.2s'
+                }}>
+                  <span style={{fontSize:18}}>{v.emoji}</span>
+                  <span style={{fontSize:12,fontWeight:600,color:on?v.color:'rgba(255,255,255,0.5)'}}>{v.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Intention */}
+        <div style={{
+          background:'rgba(255,255,255,0.03)',borderRadius:16,
+          padding:'14px',marginBottom:14,
+          border:'1px solid rgba(255,255,255,0.06)'
+        }}>
+          <div style={{fontSize:10,color:'#a8956c',letterSpacing:'0.08em',marginBottom:8}}>НАМЕРЕНИЕ НА ДЕНЬ</div>
+          <textarea
+            value={intent} onChange={e=>setIntent(e.target.value)}
+            placeholder="Сегодня я намерен…"
+            style={{
+              width:'100%',background:'transparent',border:'none',outline:'none',
+              color:'#f5f0e8',fontSize:14,fontFamily:'Fraunces,serif',fontStyle:'italic',
+              resize:'none',lineHeight:1.7,
+            }} rows={3}/>
+        </div>
+
+        {/* Archetype */}
+        <div style={{
+          background:'rgba(99,102,241,0.12)',borderRadius:14,
+          padding:'12px 14px',marginBottom:16,
+          border:'1px solid rgba(99,102,241,0.2)',
+          display:'flex',alignItems:'center',gap:12
+        }}>
+          <span style={{fontSize:26}}>📚</span>
+          <div>
+            <div style={{fontSize:10,color:'#818cf8',marginBottom:2}}>АРХЕТИП ВЧЕРА</div>
+            <div style={{fontSize:15,fontWeight:600,color:'#f5f0e8'}}>Мудрец</div>
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.4)'}}>рефлексия · анализ · знание</div>
+          </div>
+        </div>
+
+        <button style={{
+          width:'100%',padding:'14px',borderRadius:14,
+          background:'linear-gradient(135deg,#a8956c,#c9b07d)',
+          color:'#1a1612',border:'none',fontSize:14,fontWeight:700,cursor:'pointer',
+        }}>Начать день →</button>
+      </div>
+    </Phone>
+  );
+}
+
+// ════════════════════════════════════════
+// 3. BEARABLE — Данные-плотный, карточки метрик
+// ════════════════════════════════════════
+function V3_Bearable() {
+  const [active, setActive] = useState(['work']);
+  const toggle = id => setActive(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+
+  return (
+    <Phone bg="#F0F4FF" fg="#1e293b">
+      <div style={{padding:'10px 16px 20px'}}>
+        {/* Header */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div>
+            <div style={{fontSize:11,color:'#64748b',textTransform:'capitalize'}}>{DATE_RU}</div>
+            <div style={{fontSize:17,fontWeight:700,color:'#1e293b'}}>Как дела?</div>
+          </div>
+          <div style={{
+            width:44,height:44,borderRadius:12,
+            background:`linear-gradient(135deg,${MC[7]},${MC[7]}99)`,
+            display:'flex',alignItems:'center',justifyContent:'center',
+            color:'white',fontSize:18,fontWeight:800
+          }}>7</div>
+        </div>
+
+        {/* Metrics row */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:12}}>
+          {[
+            {icon:'😴',label:'Сон',v:'7.5ч',sub:'кач. 8/10',c:'#6366f1'},
+            {icon:'🚶',label:'Шаги',v:'8 421',sub:'84% цели',c:'#10b981'},
+            {icon:'🔥',label:'Стрик',v:'7 дн',sub:'Молодец!',c:'#f97316'},
+          ].map((m,i)=>(
+            <div key={i} style={{
+              background:'white',borderRadius:14,padding:'10px',
+              border:'1px solid rgba(0,0,0,0.05)',
+              boxShadow:'0 1px 8px rgba(0,0,0,0.04)'
+            }}>
+              <div style={{fontSize:20,marginBottom:4}}>{m.icon}</div>
+              <div style={{fontSize:15,fontWeight:700,color:'#1e293b'}}>{m.v}</div>
+              <div style={{fontSize:9,color:'#94a3b8',marginTop:2}}>{m.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Active timer */}
+        <div style={{
+          background:'white',borderRadius:16,overflow:'hidden',
+          border:'1px solid rgba(0,0,0,0.05)',
+          boxShadow:'0 1px 8px rgba(0,0,0,0.04)',marginBottom:10
+        }}>
+          <div style={{padding:'10px 14px',borderBottom:'1px solid #f1f5f9',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:13,fontWeight:600,color:'#1e293b'}}>Трекер</span>
+            <span style={{fontSize:11,color:'#3b82f6',fontWeight:600}}>+ Начать</span>
+          </div>
+          <div style={{padding:'10px 14px',background:'#eff6ff',display:'flex',alignItems:'center',gap:10,borderBottom:'1px solid #dbeafe'}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:'#3b82f6',animation:'pulse 2s infinite'}}/>
+            <span style={{fontSize:18}}>💼</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:600,color:'#1e293b'}}>Работа</div>
+              <div style={{fontSize:11,color:'#3b82f6'}}>идёт · 1ч 23м</div>
+            </div>
+            <button style={{padding:'5px 12px',borderRadius:8,background:'#3b82f6',color:'white',border:'none',fontSize:11,fontWeight:700,cursor:'pointer'}}>■ Стоп</button>
+          </div>
+          <div style={{padding:'10px 14px',display:'flex',flexWrap:'wrap',gap:6}}>
+            {ACTS.slice(1,6).map(a=>{
+              const on = active.includes(a.id);
+              return (
+                <button key={a.id} onClick={()=>toggle(a.id)} style={{
+                  display:'flex',alignItems:'center',gap:4,
+                  padding:'5px 10px',borderRadius:8,
+                  border:`1.5px solid ${on?a.color:'#e2e8f0'}`,
+                  background:on?a.color+'12':'white',
+                  color:on?a.color:'#94a3b8',
+                  fontSize:12,cursor:'pointer',transition:'all 0.15s',fontWeight:500
+                }}>
+                  <span style={{fontSize:14}}>{a.emoji}</span>{a.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Mini insight */}
+        <div style={{
+          background:'white',borderRadius:14,padding:'12px 14px',
+          border:'1px solid rgba(0,0,0,0.05)',boxShadow:'0 1px 8px rgba(0,0,0,0.04)'
+        }}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+            <span style={{fontSize:16}}>💡</span>
+            <span style={{fontSize:12,fontWeight:600,color:'#1e293b'}}>Паттерн обнаружен</span>
+            <span style={{marginLeft:'auto',fontSize:10,color:'#3b82f6',fontWeight:600}}>Паттерны</span>
+          </div>
+          <div style={{fontSize:12,color:'#64748b',lineHeight:1.5}}>
+            После сна &lt; 6ч настроение ≤ 4 в 80% случаев
+          </div>
+          <div style={{height:4,background:'#f1f5f9',borderRadius:2,marginTop:8,overflow:'hidden'}}>
+            <div style={{height:'100%',width:'80%',background:'#6366f1',borderRadius:2}}/>
+          </div>
+        </div>
+      </div>
+    </Phone>
+  );
+}
+
+// ════════════════════════════════════════
+// 4. REFLECTLY — Тёплый градиент, мягкий, AI-guided
+// ════════════════════════════════════════
+function V4_Reflectly() {
+  const [mood, setMood] = useState(7);
+  const [step, setStep] = useState(0);
+
+  const QUESTIONS = [
+    'Как прошло утро?',
+    'Что тебя порадовало?',
+    'Что ты чувствуешь прямо сейчас?',
+  ];
+
+  return (
+    <Phone bg="#FFF8F0" fg="#2d1f0e">
+      <div style={{padding:'0 0 20px'}}>
+        {/* Big gradient header */}
+        <div style={{
+          background:'linear-gradient(160deg,#C2692A 0%,#e88a4a 45%,#f5b87a 100%)',
+          padding:'20px 22px 28px',marginBottom:-14,
+          borderRadius:'0 0 28px 28px'
+        }}>
+          <div style={{fontSize:11,color:'rgba(255,255,255,0.7)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.08em'}}>
+            {DATE_RU}
+          </div>
+          <div style={{fontSize:22,fontWeight:700,color:'white',fontFamily:'Fraunces,serif',fontStyle:'italic'}}>
+            Привет 👋
+          </div>
+          <div style={{fontSize:13,color:'rgba(255,255,255,0.85)',marginTop:4}}>
+            {step===0 ? 'Начни с настроения' : QUESTIONS[step-1]}
+          </div>
+        </div>
+
+        <div style={{padding:'28px 22px 0'}}>
+          {/* Mood selector */}
+          {step===0 && (
+            <div style={{
+              background:'white',borderRadius:20,padding:'18px',
+              boxShadow:'0 4px 24px rgba(194,105,42,0.12)',
+              border:'1px solid rgba(194,105,42,0.1)',marginBottom:14
+            }}>
+              <div style={{fontSize:13,fontWeight:600,color:'#2d1f0e',marginBottom:14,textAlign:'center'}}>
+                Как ты себя чувствуешь?
+              </div>
+              {/* Slider-style mood */}
+              <div style={{display:'flex',gap:2,marginBottom:10}}>
+                {Array.from({length:11},(_,i)=>(
+                  <button key={i} onClick={()=>setMood(i)} style={{
+                    flex:1,height:10+i*2.5,borderRadius:3,border:'none',cursor:'pointer',
+                    background:i<=mood?MC[i]:'#f3f4f6',
+                    opacity:i<=mood?1:0.35,
+                    transition:'all 0.1s'
+                  }}/>
+                ))}
+              </div>
+              <div style={{textAlign:'center',fontSize:14,fontWeight:600,color:MC[mood]}}>
+                {mood}/10 — {ML[mood]}
+              </div>
+            </div>
+          )}
+
+          {/* Journal prompt */}
+          {step>0 && (
+            <div style={{
+              background:'white',borderRadius:20,padding:'16px',
+              boxShadow:'0 4px 24px rgba(194,105,42,0.12)',
+              border:'1px solid rgba(194,105,42,0.1)',marginBottom:14
+            }}>
+              <div style={{fontSize:13,color:'#9a7355',marginBottom:8}}>{QUESTIONS[step-1]}</div>
+              <textarea placeholder="Напиши свою мысль..." style={{
+                width:'100%',border:'none',outline:'none',resize:'none',
+                fontSize:14,color:'#2d1f0e',fontFamily:'DM Sans,sans-serif',
+                background:'transparent',lineHeight:1.6
+              }} rows={4}/>
+            </div>
+          )}
+
+          {/* Step dots */}
+          <div style={{display:'flex',gap:6,justifyContent:'center',marginBottom:14}}>
+            {[0,1,2,3].map(i=>(
+              <div key={i} style={{
+                width:i===step?20:6,height:6,borderRadius:3,
+                background:i===step?'#C2692A':i<step?'#e88a4a':'#f0d5c0',
+                transition:'all 0.3s'
+              }}/>
+            ))}
+          </div>
+
+          <button onClick={()=>setStep(s=>Math.min(3,s+1))} style={{
+            width:'100%',padding:'14px',borderRadius:16,
+            background:'linear-gradient(135deg,#C2692A,#e88a4a)',
+            color:'white',border:'none',fontSize:14,fontWeight:700,cursor:'pointer',
+            boxShadow:'0 6px 24px rgba(194,105,42,0.4)'
+          }}>
+            {step===3 ? 'Сохранить ✓' : 'Далее →'}
+          </button>
+
+          {/* AI hint */}
+          <div style={{
+            marginTop:12,padding:'10px 14px',borderRadius:12,
+            background:'rgba(194,105,42,0.07)',
+            display:'flex',gap:8,alignItems:'flex-start'
+          }}>
+            <span style={{fontSize:16}}>💭</span>
+            <span style={{fontSize:11,color:'#9a7355',lineHeight:1.5}}>
+              Рефлексия дёт лучшие инсайты. Отвечай честно — только для тебя.
+            </span>
+          </div>
+        </div>
+      </div>
+    </Phone>
+  );
+}
+
+// ════════════════════════════════════════
+// 5. FINCH — Геймификация, тёплый, pet-style
+// ════════════════════════════════════════
+function V5_Finch() {
+  const [mood, setMood] = useState(7);
+  const [acts, setActs] = useState(['sport']);
+  const toggle = id => setActs(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+
+  return (
+    <Phone bg="#FEF3C7" fg="#1C1917">
+      <div style={{padding:'10px 18px 20px'}}>
+        {/* Header */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+          <div>
+            <div style={{fontSize:11,color:'#92400e',textTransform:'uppercase',letterSpacing:'0.06em'}}>
+              {now.toLocaleDateString('ru-RU',{weekday:'long'})}
+            </div>
+            <div style={{fontSize:18,fontWeight:800,color:'#1C1917',fontFamily:'Nunito,sans-serif'}}>
+              {now.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})} ☀️
+            </div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:9,color:'#92400e',marginBottom:2}}>МОНЕТЫ</div>
+            <div style={{
+              background:'linear-gradient(135deg,#f59e0b,#d97706)',
+              color:'white',padding:'6px 10px',borderRadius:10,
+              fontSize:14,fontWeight:800,fontFamily:'Nunito,sans-serif'
+            }}>💎 48</div>
+          </div>
+        </div>
+
+        {/* Pet + XP */}
+        <div style={{
+          background:'white',borderRadius:20,padding:'16px',
+          boxShadow:'0 4px 20px rgba(0,0,0,0.06)',marginBottom:14,
+          display:'flex',alignItems:'center',gap:14
+        }}>
+          <div style={{
+            width:64,height:64,borderRadius:'50%',
+            background:'linear-gradient(135deg,#fde68a,#fbbf24)',
+            display:'flex',alignItems:'center',justifyContent:'center',
+            fontSize:36,flexShrink:0
+          }}>🐣</div>
+          <div style={{flex:1}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+              <div style={{fontSize:14,fontWeight:800,color:'#1C1917',fontFamily:'Nunito,sans-serif'}}>Твой питомец</div>
+              <div style={{fontSize:11,color:'#f59e0b',fontWeight:700}}>Ур. 7</div>
+            </div>
+            <div style={{fontSize:11,color:'#9ca3af',marginBottom:6}}>Заботься обо мне каждый день!</div>
+            {/* XP bar */}
+            <div style={{height:8,background:'#fef3c7',borderRadius:4,overflow:'hidden'}}>
+              <div style={{width:'62%',height:'100%',background:'linear-gradient(90deg,#f59e0b,#d97706)',borderRadius:4}}/>
+            </div>
+            <div style={{fontSize:9,color:'#d97706',marginTop:2}}>620 / 1000 XP до следующего уровня</div>
+          </div>
+        </div>
+
+        {/* Today's quests */}
+        <div style={{
+          background:'white',borderRadius:20,padding:'14px',
+          boxShadow:'0 4px 20px rgba(0,0,0,0.06)',marginBottom:14
+        }}>
+          <div style={{fontSize:13,fontWeight:800,color:'#1C1917',fontFamily:'Nunito,sans-serif',marginBottom:10}}>
+            🎯 Задания на сегодня
+          </div>
+          {[
+            {label:'Записать настроение',done:true,xp:'+10 XP'},
+            {label:'Сделать 1 активность',done:false,xp:'+15 XP'},
+            {label:'Вечерняя рефлексия',done:false,xp:'+20 XP'},
+          ].map((q,i)=>(
+            <div key={i} style={{
+              display:'flex',alignItems:'center',gap:10,
+              padding:'8px 0',
+              borderBottom:i<2?'1px solid #fef3c7':'none'
+            }}>
+              <div style={{
+                width:22,height:22,borderRadius:'50%',flexShrink:0,
+                background:q.done?'#10b981':'transparent',
+                border:`2px solid ${q.done?'#10b981':'#d1d5db'}`,
+                display:'flex',alignItems:'center',justifyContent:'center',
+                fontSize:12,color:'white'
+              }}>{q.done?'✓':''}</div>
+              <span style={{flex:1,fontSize:13,color:q.done?'#9ca3af':'#1C1917',textDecoration:q.done?'line-through':'none'}}>
+                {q.label}
+              </span>
+              <span style={{fontSize:10,color:'#f59e0b',fontWeight:700}}>{q.xp}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Mood quick */}
+        <div style={{
+          background:'white',borderRadius:20,padding:'14px',
+          boxShadow:'0 4px 20px rgba(0,0,0,0.06)'
+        }}>
+          <div style={{fontSize:13,fontWeight:800,color:'#1C1917',fontFamily:'Nunito,sans-serif',marginBottom:10}}>
+            😊 Как ты сейчас?
+          </div>
+          <div style={{display:'flex',gap:2,marginBottom:8}}>
+            {Array.from({length:11},(_,i)=>(
+              <button key={i} onClick={()=>setMood(i)} style={{
+                flex:1,height:8+i*2,borderRadius:2,border:'none',cursor:'pointer',
+                background:i<=mood?MC[i]:'#fef3c7',
+                opacity:i<=mood?1:0.5,transition:'all 0.1s'
+              }}/>
+            ))}
+          </div>
+          <div style={{textAlign:'center',fontSize:12,fontWeight:700,color:MC[mood]}}>
+            {ML[mood]}
+          </div>
+        </div>
+      </div>
+    </Phone>
+  );
+}
+
+// ════════════════════════════════════════
+// 6. НАША НОВАЯ — Тёплая, осознанная, rich data
+// ════════════════════════════════════════
+function V6_Ours() {
+  const [activeActs, setActiveActs] = useState(['work']);
+  const mood = 7;
+  const toggle = id => setActiveActs(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+
+  const actStats = {work:83, read:45};
+
+  return (
+    <Phone bg="#FAF7F2" fg="#1C1917">
+      <div style={{padding:'10px 20px 20px'}}>
+        {/* Header */}
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:16}}>
+          <div>
+            <div style={{fontSize:12,color:'#78716C',marginBottom:2}}>☀️ Доброе утро</div>
+            <div style={{
+              fontSize:18,fontWeight:400,color:'#1C1917',
+              fontFamily:'Fraunces,serif',fontStyle:'italic',lineHeight:1.2
+            }}>{DATE_RU}</div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,background:'#fff7ed',padding:'6px 10px',borderRadius:100,border:'1px solid #fed7aa'}}>
+            <span>🔥</span>
+            <span style={{fontSize:12,fontWeight:700,color:'#ea580c'}}>7</span>
+          </div>
+        </div>
+
+        {/* Day score card */}
+        <div style={{
+          background:'white',borderRadius:20,padding:'14px',
+          border:'1px solid rgba(0,0,0,0.06)',
+          boxShadow:'0 2px 12px rgba(0,0,0,0.05)',marginBottom:12
+        }}>
+          <div style={{display:'flex',gap:12,alignItems:'center'}}>
+            {/* Ring */}
+            <div style={{position:'relative',width:60,height:60,flexShrink:0}}>
+              <svg width={60} height={60} style={{transform:'rotate(-90deg)'}}>
+                <circle cx={30} cy={30} r={24} fill="none" stroke="#F5F0E8" strokeWidth={6}/>
+                <circle cx={30} cy={30} r={24} fill="none" stroke={MC[mood]} strokeWidth={6}
+                  strokeDasharray={`${(mood/10)*150.8} 150.8`} strokeLinecap="round"/>
+              </svg>
+              <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontSize:16,fontWeight:700,color:MC[mood]}}>{mood}</span>
+              </div>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:600,color:'#1C1917',marginBottom:2}}>{ML[mood]}</div>
+              <div style={{display:'flex',gap:10}}>
+                <span style={{fontSize:11,color:'#78716C'}}>⚡ энергия 7</span>
+                <span style={{fontSize:11,color:'#78716C'}}>⏱ 2ч 8м</span>
+              </div>
+              {/* Time bar */}
+              <div style={{display:'flex',height:5,borderRadius:3,overflow:'hidden',marginTop:6,gap:1}}>
+                {Object.entries(actStats).map(([id,w])=>{
+                  const a=ACTS.find(x=>x.id===id);
+                  return a?<div key={id} style={{flex:w,background:a.color,borderRadius:2}}/>:null;
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick actions */}
+          <div style={{display:'flex',marginTop:12,borderTop:'1px solid #F5F0E8',paddingTop:10,gap:0}}>
+            {[
+              {icon:'😊',label:'Состояние'},
+              {icon:'⚡',label:'События'},
+              {icon:'🌙',label:'Вечер'},
+            ].map((item,i)=>(
+              <div key={i} style={{
+                flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',
+                borderRight:i<2?'1px solid #F5F0E8':'none',padding:'4px 0'
+              }}>
+                <span style={{fontSize:18}}>{item.icon}</span>
+                <span style={{fontSize:9,color:'#78716C'}}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Activity grid */}
+        <div style={{marginBottom:12}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+            <span style={{fontSize:13,fontWeight:600,color:'#1C1917'}}>Активности</span>
+            <span style={{fontSize:11,color:'#C2692A',fontWeight:500}}>
+              {activeActs.length} идёт
+            </span>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:7}}>
+            {ACTS.map(a=>{
+              const on = activeActs.includes(a.id);
+              const mins = actStats[a.id];
+              return (
+                <button key={a.id} onClick={()=>toggle(a.id)} style={{
+                  display:'flex',flexDirection:'column',alignItems:'center',gap:3,
+                  padding:'10px 4px',borderRadius:14,
+                  background:on?a.color+'15':'white',
+                  border:`1.5px solid ${on?a.color:'rgba(0,0,0,0.06)'}`,
+                  cursor:'pointer',transition:'all 0.15s',
+                  boxShadow:'0 1px 4px rgba(0,0,0,0.03)'
+                }}>
+                  <span style={{fontSize:20}}>{a.emoji}</span>
+                  <span style={{fontSize:9,color:on?a.color:'#78716C',fontWeight:on?600:400,textAlign:'center'}}>
+                    {a.label}
+                  </span>
+                  {mins&&<span style={{fontSize:8,color:a.color+'99'}}>{Math.floor(mins/60)>0?`${Math.floor(mins/60)}ч`:''}{mins%60}м</span>}
+                  {on&&<div style={{width:5,height:5,borderRadius:'50%',background:a.color,animation:'pulse 2s infinite'}}/>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Insight snippet */}
+        <div style={{
+          background:'linear-gradient(135deg,#eff6ff,#f5f3ff)',
+          borderRadius:16,padding:'12px 14px',
+          border:'1px solid rgba(99,102,241,0.12)'
+        }}>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <span style={{fontSize:16}}>💡</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:600,color:'#312e81'}}>Паттерн этой недели</div>
+              <div style={{fontSize:11,color:'#6366f1',marginTop:1}}>В дни со спортом настроение +1.5 выше</div>
+            </div>
+            <span style={{fontSize:11,color:'#818cf8',fontWeight:600}}>→</span>
+          </div>
+        </div>
+      </div>
+    </Phone>
+  );
+}
+
+// ════════════════════════════════════════
+// APP — Design Canvas
+// ════════════════════════════════════════
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="s1" title="Варианты главного экрана — вдохновение конкурентами">
+        <DCArtboard id="v1" label="① Daylio — emoji-first, минимализм" width={360} height={780}>
+          <V1_Daylio/>
+        </DCArtboard>
+        <DCArtboard id="v2" label="② Stoic — тёмный, медитативный" width={360} height={780}>
+          <V2_Stoic/>
+        </DCArtboard>
+        <DCArtboard id="v3" label="③ Bearable — плотные данные, карточки" width={360} height={780}>
+          <V3_Bearable/>
+        </DCArtboard>
+        <DCArtboard id="v4" label="④ Reflectly — тёплый градиент, AI-guided" width={360} height={780}>
+          <V4_Reflectly/>
+        </DCArtboard>
+        <DCArtboard id="v5" label="⑤ Finch — геймификация, питомец" width={360} height={780}>
+          <V5_Finch/>
+        </DCArtboard>
+        <DCArtboard id="v6" label="⑥ Наш — осознанный, тёплый, rich" width={360} height={780}>
+          <V6_Ours/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
