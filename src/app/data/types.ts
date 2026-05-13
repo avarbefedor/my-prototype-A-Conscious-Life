@@ -1,9 +1,46 @@
 export interface ActivityEntry {
   id: string;
   activityId: string;
+  variantId?: string;     // for composite activities of kind 'variants'
+  objectId?: string;      // for composite activities of kind 'objects'
+  progressDelta?: number; // pages read / episodes watched / km run during this session
   startTime: string; // HH:MM
   endTime?: string;  // HH:MM
   comment?: string;
+}
+
+// ---- Composite activities & progress objects ----
+
+export interface ActivityVariant {
+  id: string;
+  label: string;
+  emoji?: string;
+  color?: string;
+}
+
+export type ProgressObjectKind = 'book' | 'show' | 'project' | 'custom';
+
+export interface CompositeConfig {
+  kind: 'variants' | 'objects';
+  // for kind='variants'
+  variants?: ActivityVariant[];
+  // for kind='objects'
+  objectKind?: ProgressObjectKind;
+  objectKindLabel?: string;   // "Книга", "Сериал/Фильм", "Проект"
+  unitLabel?: string;         // "стр", "эп", "—"
+}
+
+export interface ProgressObject {
+  id: string;
+  activityTypeId: string;
+  title: string;
+  emoji?: string;
+  current?: number;
+  total?: number;
+  unit?: string;          // overrides unitLabel from composite config if set
+  status: 'active' | 'completed' | 'abandoned';
+  createdAt: string;      // ISO date
+  meta?: Record<string, string>;
 }
 
 export interface MoodSnapshot {
@@ -260,13 +297,33 @@ export interface ActivityType {
   label: string;
   emoji: string;
   color: string;
+  featured?: boolean;          // render as a large bento tile
+  composite?: CompositeConfig; // composite (variant- or object-based) activity
 }
 
 export const DEFAULT_ACTIVITIES: ActivityType[] = [
-  { id: 'work', label: 'Работа', emoji: '💼', color: '#3b82f6' },
-  { id: 'sport', label: 'Спорт', emoji: '🏋️', color: '#10b981' },
-  { id: 'reading', label: 'Чтение', emoji: '📚', color: '#8b5cf6' },
-  { id: 'social_media', label: 'Соцсети', emoji: '📱', color: '#f43f5e' },
+  { id: 'work', label: 'Работа', emoji: '💼', color: '#3b82f6', featured: true },
+  {
+    id: 'sport', label: 'Спорт', emoji: '🏋️', color: '#10b981', featured: true,
+    composite: {
+      kind: 'variants',
+      variants: [
+        { id: 'running', label: 'Бег', emoji: '🏃', color: '#22c55e' },
+        { id: 'strength', label: 'Силовая', emoji: '🏋️', color: '#ef4444' },
+        { id: 'yoga', label: 'Йога', emoji: '🧘', color: '#a78bfa' },
+        { id: 'swimming', label: 'Плавание', emoji: '🏊', color: '#06b6d4' },
+        { id: 'cycling', label: 'Велосипед', emoji: '🚴', color: '#f59e0b' },
+      ],
+    },
+  },
+  {
+    id: 'reading', label: 'Чтение', emoji: '📚', color: '#8b5cf6', featured: true,
+    composite: {
+      kind: 'objects', objectKind: 'book',
+      objectKindLabel: 'Книга', unitLabel: 'стр',
+    },
+  },
+  { id: 'social_media', label: 'Соцсети', emoji: '📱', color: '#f43f5e', featured: true },
   { id: 'socializing', label: 'Общение', emoji: '👥', color: '#f59e0b' },
   { id: 'family', label: 'Семья', emoji: '🏠', color: '#ec4899' },
   { id: 'cooking', label: 'Готовка', emoji: '🍳', color: '#f97316' },
@@ -276,7 +333,13 @@ export const DEFAULT_ACTIVITIES: ActivityType[] = [
   { id: 'rest', label: 'Отдых', emoji: '😴', color: '#94a3b8' },
   { id: 'meditation', label: 'Медитация', emoji: '🧘', color: '#a78bfa' },
   { id: 'commute', label: 'Дорога', emoji: '🚗', color: '#78716c' },
-  { id: 'entertainment', label: 'Развлечения', emoji: '🎮', color: '#e879f9' },
+  {
+    id: 'entertainment', label: 'Кино/Сериал', emoji: '🎬', color: '#e879f9',
+    composite: {
+      kind: 'objects', objectKind: 'show',
+      objectKindLabel: 'Фильм/Сериал', unitLabel: 'эп',
+    },
+  },
 ];
 
 /** @deprecated Use useActivities() hook instead */

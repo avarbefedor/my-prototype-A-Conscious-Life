@@ -3,14 +3,45 @@ import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Drawer } from 'vaul';
 import { ChevronDown, ChevronUp, Plus, X, Clock, MessageCircle, Trash2, Settings, Check, Pencil, Menu } from 'lucide-react';
-import { useDays, getStreak, useActivities, useEvents, useEventGroups, useLenses } from '../data/store';
+import { useDays, getStreak, useActivities, useEvents, useEventGroups, useLenses, useObjects } from '../data/store';
 import { MOOD_LABELS } from '../data/types';
 import type { ActivityType, MoodSnapshot } from '../data/types';
 import { DraggableActivityGrid } from '../components/DraggableActivityGrid';
 import { ActivityBottomSheet } from '../components/ActivityBottomSheet';
+import { CompositeActivitySheet } from '../components/CompositeActivitySheet';
 import { EmojiPickerSheet } from '../components/EmojiPickerSheet';
 import { useDrawer } from '../context/DrawerContext';
 import { MoodRing } from '../components/MoodRing';
+
+function CoverShape({ type = 'circles', color = '#C2692A', emoji }: { type?: 'circles' | 'stripes' | 'arc'; color?: string; emoji?: string }) {
+  const base: React.CSSProperties = { position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit' };
+  if (type === 'circles') {
+    return (
+      <div style={base}>
+        <div style={{ position: 'absolute', width: 130, height: 130, borderRadius: '50%', background: color + '35', right: -30, bottom: -30 }} />
+        <div style={{ position: 'absolute', width: 90, height: 90, borderRadius: '50%', background: color + '55', right: -8, bottom: -8 }} />
+        {emoji && <div style={{ position: 'absolute', right: 12, bottom: 8, fontSize: 34, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.08))' }}>{emoji}</div>}
+      </div>
+    );
+  }
+  if (type === 'stripes') {
+    return (
+      <div style={base}>
+        <div style={{ position: 'absolute', inset: 0, background: `repeating-linear-gradient(135deg, ${color}30 0 12px, transparent 12px 28px)` }} />
+        {emoji && <div style={{ position: 'absolute', right: 12, bottom: 8, fontSize: 34 }}>{emoji}</div>}
+      </div>
+    );
+  }
+  if (type === 'arc') {
+    return (
+      <div style={base}>
+        <div style={{ position: 'absolute', width: 190, height: 190, borderRadius: '50%', border: `22px solid ${color}45`, right: -80, top: -50 }} />
+        {emoji && <div style={{ position: 'absolute', right: 14, bottom: 10, fontSize: 36 }}>{emoji}</div>}
+      </div>
+    );
+  }
+  return null;
+}
 
 const MOOD_COLORS: Record<number, string> = {
   0: '#ef4444', 1: '#ef4444', 2: '#f97316', 3: '#f97316',
@@ -81,6 +112,7 @@ export function NowPage() {
   const navigate = useNavigate();
   const { getOrCreateToday, toggleActivity, saveDay, addMoodSnapshot, updateMoodSnapshot, deleteMoodSnapshot, toggleEvent, updateEventEntry, updateActivityEntry, deleteActivityEntry, activeActivities } = useDays();
   const { activities, addActivity, reorderActivities, deleteActivity: deleteActivityType, updateActivity } = useActivities();
+  const { getObjectById } = useObjects();
   const { events, addEvent, deleteEvent } = useEvents();
   const { eventGroups, addEventGroup, updateEventGroup, deleteEventGroup, reorderEventGroups } = useEventGroups();
   const { activeLensIds } = useLenses();
@@ -110,6 +142,7 @@ export function NowPage() {
   const [gridExpanded, setGridExpanded] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetActivity, setSheetActivity] = useState<ActivityType | null>(null);
+  const [compositeSheet, setCompositeSheet] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
   const [editingSnapshotId, setEditingSnapshotId] = useState<string | null>(null);
   const [editSnapMood, setEditSnapMood] = useState(5);
   const [editSnapEnergy, setEditSnapEnergy] = useState(5);
@@ -143,10 +176,42 @@ export function NowPage() {
 
   const handleToggle = useCallback((activityId: string) => {
     const wasActive = activeActivities.includes(activityId);
+    const act = activities.find((a) => a.id === activityId);
+    // Composite activity → open selection sheet on START. On STOP just toggle off.
+    if (!wasActive && act?.composite) {
+      setCompositeSheet({ open: true, activity: act });
+      return;
+    }
     toggleActivity(activityId);
     if (!wasActive) setJustStarted(activityId);
     else if (justStarted === activityId) setJustStarted(null);
-  }, [activeActivities, toggleActivity, justStarted]);
+  }, [activeActivities, activities, toggleActivity, justStarted]);
+
+  const handleCompositeSelect = useCallback((opts: { variantId?: string; objectId?: string }) => {
+    const act = compositeSheet.activity;
+    if (!act) return;
+    toggleActivity(act.id, opts);
+    setJustStarted(act.id);
+  }, [compositeSheet.activity, toggleActivity]);
+
+  // Resolve display label for a running entry (template + variant/object)
+  const getEntryLabel = useCallback((activityId: string): { mainLabel: string; subLabel?: string } => {
+    const act = activities.find((a) => a.id === activityId);
+    if (!act) return { mainLabel: '' };
+    const entry = today.activities.find((a) => a.activityId === activityId && !a.endTime);
+    if (!entry) return { mainLabel: act.label };
+    if (entry.objectId) {
+      const obj = getObjectById(entry.objectId);
+      if (obj) return { mainLabel: act.label, subLabel: obj.title };
+    }
+    if (entry.variantId && act.composite?.variants) {
+      const v = act.composite.variants.find((x) => x.id === entry.variantId);
+      if (v) return { mainLabel: act.label, subLabel: v.label };
+      // synthetic ad-hoc variant (not in template list)
+      return { mainLabel: act.label, subLabel: entry.variantId.replace(/_/g, ' ') };
+    }
+    return { mainLabel: act.label };
+  }, [activities, today.activities, getObjectById]);
 
   const getRunningEntry = useCallback((activityId: string) => {
     return today.activities.find((a) => a.activityId === activityId && !a.endTime);
@@ -432,6 +497,12 @@ export function NowPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                               <span className="text-sm" style={{ color: actInfo.color }}>{actInfo.label}</span>
+                              {(() => {
+                                const lbl = getEntryLabel(actInfo.id);
+                                return lbl.subLabel ? (
+                                  <span className="text-xs" style={{ color: actInfo.color, fontWeight: 500 }}>· {lbl.subLabel}</span>
+                                ) : null;
+                              })()}
                               <span className="text-xs text-muted-foreground">· с {entry.startTime}</span>
                               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                             </div>
@@ -594,28 +665,88 @@ export function NowPage() {
         </AnimatePresence>
 
         {/* ─── Activity section ─── */}
-        <div style={{ background: 'white', borderRadius: 18, padding: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#1C1917' }}>Чем занят</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {activeActivities.length > 0 && <span style={{ fontSize: 12, color: '#C2692A', fontWeight: 500 }}>{activeActivities.length} активны</span>}
-              <button onClick={() => setGridEditMode(!gridEditMode)} style={{ padding: 6, borderRadius: 8, cursor: 'pointer', background: 'transparent', border: 'none' }}>
-                {gridEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
-              </button>
-            </div>
-          </div>
-          {gridEditMode && <p className="text-xs text-muted-foreground mb-2">Перетаскивайте или нажмите для редактирования</p>}
-          <DraggableActivityGrid
-            activities={activities}
-            activeActivities={activeActivities}
-            editMode={gridEditMode}
-            onToggle={handleToggle}
-            onReorder={reorderActivities}
-            onDelete={deleteActivityType}
-            onEdit={(act) => { setSheetActivity(act); setSheetOpen(true); }}
-            onAdd={() => { setSheetActivity(null); setSheetOpen(true); }}
-          />
-        </div>
+        {(() => {
+          const featured = activities.filter((a) => a.featured);
+          const rest = activities.filter((a) => !a.featured);
+          const shapeFor = (idx: number) => (['circles', 'stripes', 'arc', 'circles'] as const)[idx % 4];
+          return (
+            <>
+              {/* Header above featured + rest */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#1C1917' }}>Чем занят</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {activeActivities.length > 0 && <span style={{ fontSize: 12, color: '#C2692A', fontWeight: 500 }}>{activeActivities.length} активны</span>}
+                  <button onClick={() => setGridEditMode(!gridEditMode)} style={{ padding: 6, borderRadius: 8, cursor: 'pointer', background: 'transparent', border: 'none' }}>
+                    {gridEditMode ? <Check className="w-4 h-4 text-green-500" /> : <Settings className="w-3.5 h-3.5 text-muted-foreground" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Featured: large bento tiles */}
+              {featured.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {featured.map((act, i) => {
+                    const isActive = activeActivities.includes(act.id);
+                    const label = getEntryLabel(act.id);
+                    return (
+                      <button
+                        key={act.id}
+                        onClick={() => handleToggle(act.id)}
+                        style={{
+                          background: isActive ? act.color + '22' : '#FFFFFF',
+                          border: 'none',
+                          borderRadius: 18,
+                          padding: 14,
+                          minHeight: 108,
+                          cursor: 'pointer',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          textAlign: 'left',
+                          transition: 'background 0.2s ease',
+                        }}
+                      >
+                        <CoverShape type={shapeFor(i)} color={act.color} emoji={act.emoji} />
+                        <div style={{ position: 'relative', zIndex: 2 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1917' }}>{act.label}</div>
+                          <div style={{ fontSize: 11, color: isActive ? act.color : '#78716C', marginTop: 2, fontWeight: isActive ? 600 : 400 }}>
+                            {isActive
+                              ? (label.subLabel ? `● ${label.subLabel}` : '● активно')
+                              : (act.composite ? (act.composite.kind === 'variants' ? 'Выбрать тип' : 'Выбрать') : 'Отметить')}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Rest: compact grid (existing draggable) */}
+              {rest.length > 0 && (
+                <div style={{ background: 'white', borderRadius: 18, padding: 14 }}>
+                  {gridEditMode && <p className="text-xs text-muted-foreground mb-2">Перетаскивайте или нажмите для редактирования</p>}
+                  <DraggableActivityGrid
+                    activities={rest}
+                    activeActivities={activeActivities}
+                    editMode={gridEditMode}
+                    onToggle={handleToggle}
+                    onReorder={(from, to) => {
+                      // Translate sub-grid indices back to global indices
+                      const restIds = rest.map((r) => r.id);
+                      const fromId = restIds[from];
+                      const toId = restIds[to];
+                      const globalFrom = activities.findIndex((a) => a.id === fromId);
+                      const globalTo = activities.findIndex((a) => a.id === toId);
+                      if (globalFrom >= 0 && globalTo >= 0) reorderActivities(globalFrom, globalTo);
+                    }}
+                    onDelete={deleteActivityType}
+                    onEdit={(act) => { setSheetActivity(act); setSheetOpen(true); }}
+                    onAdd={() => { setSheetActivity(null); setSheetOpen(true); }}
+                  />
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* ─── Black CTA ─── */}
         <button
@@ -966,6 +1097,14 @@ export function NowPage() {
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>
+
+      {/* Composite activity sheet (variants / progress objects) */}
+      <CompositeActivitySheet
+        open={compositeSheet.open}
+        activity={compositeSheet.activity}
+        onClose={() => setCompositeSheet({ open: false, activity: null })}
+        onSelect={handleCompositeSelect}
+      />
     </div>
   );
 }

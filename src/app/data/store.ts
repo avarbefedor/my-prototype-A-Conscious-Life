@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { DayLog, ActivityEntry, MoodSnapshot, DEFAULT_ACTIVITIES, ActivityType, DEFAULT_EVENT_TAGS, EventType, EventMultiplier, EventGroup, DEFAULT_EVENT_GROUPS, LensValue, BUILT_IN_LENSES, ACT_VALUES_BANK } from './types';
+import { DayLog, ActivityEntry, MoodSnapshot, DEFAULT_ACTIVITIES, ActivityType, DEFAULT_EVENT_TAGS, EventType, EventMultiplier, EventGroup, DEFAULT_EVENT_GROUPS, LensValue, BUILT_IN_LENSES, ACT_VALUES_BANK, ProgressObject } from './types';
 import { initialDays } from './mockData';
 
 // Simple global store
@@ -46,6 +46,28 @@ export function useDevUnlock() {
 // Custom activities store
 let customActivities: ActivityType[] = [...DEFAULT_ACTIVITIES];
 let activityListeners: Set<() => void> = new Set();
+
+// Progress objects store (books, shows, projects) — persisted in localStorage
+const OBJECTS_LS_KEY = 'cl_progress_objects_v1';
+function loadObjects(): ProgressObject[] {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(OBJECTS_LS_KEY) : null;
+    if (raw) return JSON.parse(raw) as ProgressObject[];
+  } catch (_) { /* ignore */ }
+  // Seed with two demo books so the sheet isn't empty on first run
+  return [
+    { id: 'seed-book-1', activityTypeId: 'reading', title: 'Дюна', emoji: '📖', current: 250, total: 900, unit: 'стр', status: 'active', createdAt: new Date().toISOString() },
+    { id: 'seed-book-2', activityTypeId: 'reading', title: 'Atomic Habits', emoji: '📖', current: 80, total: 300, unit: 'стр', status: 'active', createdAt: new Date().toISOString() },
+  ];
+}
+let progressObjects: ProgressObject[] = loadObjects();
+let objectListeners: Set<() => void> = new Set();
+function notifyObjects() {
+  try {
+    if (typeof window !== 'undefined') window.localStorage.setItem(OBJECTS_LS_KEY, JSON.stringify(progressObjects));
+  } catch (_) { /* ignore */ }
+  objectListeners.forEach((l) => l());
+}
 
 // Custom events store
 let customEvents: EventType[] = [...DEFAULT_EVENT_TAGS];
@@ -240,6 +262,49 @@ export function useActivities() {
   };
 }
 
+// ---- Progress objects store ----
+export function useObjects() {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const listener = () => setTick((t) => t + 1);
+    objectListeners.add(listener);
+    return () => { objectListeners.delete(listener); };
+  }, []);
+
+  const addObject = useCallback((obj: Omit<ProgressObject, 'id' | 'createdAt' | 'status'> & { status?: ProgressObject['status'] }) => {
+    const newObj: ProgressObject = {
+      ...obj,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+      status: obj.status ?? 'active',
+    };
+    progressObjects = [...progressObjects, newObj];
+    notifyObjects();
+    return newObj;
+  }, []);
+
+  const updateObject = useCallback((id: string, updates: Partial<ProgressObject>) => {
+    progressObjects = progressObjects.map((o) => o.id === id ? { ...o, ...updates } : o);
+    notifyObjects();
+  }, []);
+
+  const deleteObject = useCallback((id: string) => {
+    progressObjects = progressObjects.filter((o) => o.id !== id);
+    notifyObjects();
+  }, []);
+
+  const getObjectsFor = useCallback((activityTypeId: string, status?: ProgressObject['status']) => {
+    return progressObjects.filter((o) => o.activityTypeId === activityTypeId && (status ? o.status === status : true));
+  }, []);
+
+  const getObjectById = useCallback((id: string) => {
+    return progressObjects.find((o) => o.id === id) || null;
+  }, []);
+
+  return { objects: progressObjects, addObject, updateObject, deleteObject, getObjectsFor, getObjectById };
+}
+
 export function useDays() {
   const [, setTick] = useState(0);
 
@@ -295,8 +360,9 @@ export function useDays() {
     return newDay;
   }, []);
 
-  // Toggle activity on/off (multi-select support)
-  const toggleActivity = useCallback((activityId: string) => {
+  // Toggle activity on/off (multi-select support).
+  // Optional opts let the caller pass a variant or progress object for composite activities.
+  const toggleActivity = useCallback((activityId: string, opts?: { variantId?: string; objectId?: string }) => {
     haptic('medium');
     const today = getOrCreateToday();
     const time = nowTime();
@@ -319,6 +385,8 @@ export function useDays() {
       const newEntry: ActivityEntry = {
         id: generateId(),
         activityId,
+        variantId: opts?.variantId,
+        objectId: opts?.objectId,
         startTime: time,
       };
       saveDay({ ...today, activities: [...today.activities, newEntry] });
