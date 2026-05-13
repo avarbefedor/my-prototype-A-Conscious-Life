@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Осознанная жизнь — Data Viz</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Fraunces:ital,opsz,wght@1,9..144,300;1,9..144,400;0,9..144,300&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #080a10; font-family: 'Space Grotesk', sans-serif; display: flex; align-items: center; justify-content: center; }
+
+:root {
+  --bg: #0d1117;
+  --bg2: #161b27;
+  --bg3: #1e2535;
+  --fg: #e2e8f0;
+  --fg2: #94a3b8;
+  --fg3: #4b5563;
+  --border: rgba(255,255,255,0.07);
+  --primary: #6366f1;
+  --mono: 'JetBrains Mono', monospace;
+  --display: 'Space Grotesk', sans-serif;
+}
+
+.phone {
+  width: 390px; height: 844px;
+  background: #0a0c12; border-radius: 50px; padding: 11px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.7);
+  flex-shrink: 0; position: relative;
+}
+.screen {
+  width: 100%; height: 100%; border-radius: 40px;
+  overflow: hidden; background: var(--bg);
+  display: flex; flex-direction: column; position: relative;
+}
+.notch {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 120px; height: 34px; background: #0a0c12;
+  border-radius: 0 0 20px 20px; z-index: 20;
+}
+.status-bar {
+  height: 50px; display: flex; align-items: flex-end;
+  justify-content: space-between; padding: 0 22px 8px;
+  flex-shrink: 0; position: relative; z-index: 5;
+  font-family: var(--mono); font-size: 12px; color: var(--fg2);
+}
+.screen-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.scrollable { flex: 1; overflow-y: auto; }
+.scrollable::-webkit-scrollbar { display: none; }
+
+/* Bottom nav */
+.bottom-nav {
+  height: 74px; background: rgba(13,17,23,0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: flex-start; padding-top: 10px;
+  flex-shrink: 0; position: relative; z-index: 10;
+}
+.nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border: none; background: transparent; cursor: pointer; padding: 4px 0;
+  transition: all 0.2s;
+}
+.nav-icon { font-size: 20px; line-height: 1; }
+.nav-label { font-size: 9px; color: var(--fg3); font-family: var(--mono); letter-spacing: 0.04em; }
+.nav-btn.active .nav-label { color: var(--primary); }
+.nav-btn.active .nav-icon { filter: drop-shadow(0 0 6px var(--primary)); }
+
+/* Cards */
+.card {
+  background: var(--bg2); border-radius: 18px;
+  border: 1px solid var(--border);
+}
+
+/* Home indicator */
+.home-ind { height: 30px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.home-bar { width: 110px; height: 4px; border-radius: 2px; background: var(--fg3); opacity: 0.4; }
+
+/* Animations */
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes glow { 0%,100%{box-shadow:0 0 8px currentColor} 50%{box-shadow:0 0 20px currentColor} }
+@keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+
+.fade-up { animation: fadeUp 0.35s ease forwards; }
+.slide-in { animation: slideIn 0.3s ease forwards; }
+
+/* Label */
+.label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+  color: var(--fg3); text-transform: uppercase;
+}
+
+/* Activity card */
+.act-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 8px; border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background: var(--bg2); cursor: pointer;
+  transition: all 0.2s; position: relative; overflow: hidden;
+}
+.act-card.active { border-color: currentColor; }
+.act-card:active { transform: scale(0.95); }
+
+/* Insight card */
+.insight-card {
+  background: var(--bg2); border-radius: 18px;
+  border: 1px solid var(--border); overflow: hidden;
+  transition: all 0.2s;
+}
+
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 3px;
+  background: var(--bg3); border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--primary); cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+// ── DATA ─────────────────────────────────────────────────────────────────────
+
+const now = new Date();
+const TIME = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+const DATE_RU = now.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+
+const MC = {0:'#ef4444',1:'#ef4444',2:'#f97316',3:'#f97316',4:'#eab308',5:'#eab308',6:'#84cc16',7:'#22c55e',8:'#22c55e',9:'#10b981',10:'#059669'};
+const ML = {0:'ужасно',1:'очень плохо',2:'плохо',3:'тяжело',4:'ниже среднего',5:'нормально',6:'неплохо',7:'хорошо',8:'очень хорошо',9:'отлично',10:'великолепно'};
+
+const ALL_ACTS = [
+  {id:'work',   label:'Работа',    emoji:'💼', color:'#3b82f6', mins:83,  energy:'drain'},
+  {id:'sport',  label:'Спорт',     emoji:'🏋️', color:'#10b981', mins:45,  energy:'charge'},
+  {id:'read',   label:'Чтение',    emoji:'📚', color:'#8b5cf6', mins:30,  energy:'charge'},
+  {id:'social', label:'Соцсети',   emoji:'📱', color:'#f43f5e', mins:55,  energy:'drain'},
+  {id:'friends',label:'Общение',   emoji:'👥', color:'#f59e0b', mins:40,  energy:'charge'},
+  {id:'family', label:'Семья',     emoji:'🏠', color:'#ec4899', mins:0,   energy:'charge'},
+  {id:'cook',   label:'Готовка',   emoji:'🍳', color:'#f97316', mins:25,  energy:'neutral'},
+  {id:'study',  label:'Учёба',     emoji:'🎓', color:'#6366f1', mins:0,   energy:'charge'},
+  {id:'hobby',  label:'Хобби',     emoji:'🎨', color:'#14b8a6', mins:0,   energy:'charge'},
+  {id:'walk',   label:'Прогулка',  emoji:'🚶', color:'#22c55e', mins:35,  energy:'charge'},
+  {id:'rest',   label:'Отдых',     emoji:'😴', color:'#94a3b8', mins:0,   energy:'charge'},
+  {id:'meditate',label:'Медитация',emoji:'🧘', color:'#a78bfa', mins:0,   energy:'charge'},
+];
+
+const WEEK_MOOD = [6,8,5,9,7,8,7];
+const WEEK_ENERGY = [5,7,4,8,6,7,6];
+const WEEK_DAYS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+const INSIGHTS = [
+  {
+    id:'1', title:'Недосып → плохое настроение',
+    subtitle:'Обнаружена сильная корреляция',
+    category:'sleep', layer:'patterns', strength:0.85, obs:18,
+    color:'#6366f1', icon:'😴',
+    chart:{type:'bar', labels:['<5ч','5-6ч','6-7ч','7-8ч','>8ч'], values:[3.2,4.5,5.8,7.2,7.8], color:'#6366f1'},
+    advice:'Придерживайся 7–8 часов сна — и настроение вырастет в среднем на 2.5 пункта.',
+    delta:'+2.5',deltaLabel:'к настроению',
+  },
+  {
+    id:'2', title:'Тренировки → настроение +1.5',
+    subtitle:'В 14 из 14 наблюдений',
+    category:'body', layer:'energy', strength:0.78, obs:14,
+    color:'#10b981', icon:'🏋️',
+    chart:{type:'compare', labels:['Без спорта','Со спортом'], values:[5.8,7.3], color:'#10b981'},
+    advice:'Используй тренировку как инструмент подъёма настроения в тяжёлые дни.',
+    delta:'+1.5',deltaLabel:'к настроению',
+  },
+  {
+    id:'3', title:'Соцсети > 2ч → падение энергии',
+    subtitle:'Кумулятивный эффект',
+    category:'psyche', layer:'patterns', strength:0.76, obs:11,
+    color:'#f43f5e', icon:'📱',
+    chart:{type:'line', labels:['<30м','30-1ч','1-2ч','>2ч'], values:[7.5,6.8,5.2,4.1], color:'#f43f5e'},
+    advice:'Установи таймер 30 минут — и энергия к вечеру будет выше на 3.4 пункта.',
+    delta:'-3.4',deltaLabel:'к энергии',
+  },
+  {
+    id:'4', title:'Прогулка → лучший перезаряд',
+    subtitle:'Эффект нарастает 2 часа',
+    category:'body', layer:'energy', strength:0.81, obs:9,
+    color:'#22c55e', icon:'🚶',
+    chart:{type:'line', labels:['До','+30м','+1ч','+2ч'], values:[4.5,5.8,6.8,6.2], color:'#22c55e'},
+    advice:'Прогулка после 15:00 — лучшее время. Энергия растёт быстрее всего именно тогда.',
+    delta:'+2.3',deltaLabel:'к энергии',
+  },
+  {
+    id:'5', title:'Алкоголь разрушает следующий день',
+    subtitle:'90% случаев',
+    category:'body', layer:'lenses', strength:0.92, obs:8,
+    color:'#f97316', icon:'🍷',
+    chart:{type:'bar', labels:['До','День','После','+2дня'], values:[7,6,4,6], color:'#f97316'},
+    advice:'Даже раз в неделю имеет кумулятивный эффект — −14% к среднему настроению.',
+    delta:'-3.0',deltaLabel:'на след. день',
+    locked:true,
+  },
+  {
+    id:'6', title:'Конфликт → ПА в 24ч',
+    subtitle:'В 3 из 4 случаев',
+    category:'psyche', layer:'patterns', strength:0.88, obs:12,
+    color:'#8b5cf6', icon:'⚡',
+    chart:{type:'compare', labels:['После конфликта','Обычно'], values:[3.2,0.8], color:'#8b5cf6'},
+    advice:'Готовь инструменты сразу: дыхание, прогулка, медитация в течение часа после.',
+    delta:'×4',deltaLabel:'чаще ПА',
+    locked:true,
+  },
+];
+
+// ── SVG HELPERS ───────────────────────────────────────────────────────────────
+
+function DonutSegments({acts, size=130}) {
+  const total = acts.filter(a=>a.mins>0).reduce((s,a)=>s+a.mins,0);
+  if(!total) return null;
+  const r=52, cx=size/2, cy=size/2, circ=2*Math.PI*r;
+  let offset=0;
+  return (
+    <svg width={size} height={size} style={{transform:'rotate(-90deg)'}}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1e2535" strokeWidth={14}/>
+      {acts.filter(a=>a.mins>0).map(a=>{
+        const pct=a.mins/total;
+        const dash=pct*circ;
+        const dashOffset=-(offset/1)*circ/1;
+        const el=(
+          <circle key={a.id} cx={cx} cy={cy} r={r}
+            fill="none" stroke={a.color} strokeWidth={13}
+            strokeDasharray={`${dash} ${circ-dash}`}
+            strokeDashoffset={-offset*circ}
+            strokeLinecap="butt" opacity={0.9}/>
+        );
+        offset+=pct;
+        return el;
+      })}
+    </svg>
+  );
+}
+
+function Sparkline({data, color, width=120, height=36}) {
+  if(!data||data.length<2) return null;
+  const max=Math.max(...data), min=Math.min(...data);
+  const range=max-min||1;
+  const pts = data.map((v,i)=>[
+    (i/(data.length-1))*width,
+    height - ((v-min)/range)*(height-4)-2
+  ]);
+  const path = pts.map((p,i)=>`${i===0?'M':'L'} ${p[0]} ${p[1]}`).join(' ');
+  const area = `${path} L ${width} ${height} L 0 ${height} Z`;
+  return (
+    <svg width={width} height={height} style={{overflow:'visible'}}>
+      <defs>
+        <linearGradient id={`sg-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.3}/>
+          <stop offset="100%" stopColor={color} stopOpacity={0}/>
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#sg-${color.replace('#','')})`}/>
+      <path d={path} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+      {pts.map((p,i)=>(
+        <circle key={i} cx={p[0]} cy={p[1]} r={i===pts.length-1?4:2.5}
+          fill={i===pts.length-1?color:'#0d1117'} stroke={color} strokeWidth={1.5}/>
+      ))}
+    </svg>
+  );
+}
+
+function MiniBarChart({labels, values, color, height=50}) {
+  const max=Math.max(...values,0.1);
+  return (
+    <div style={{display:'flex',alignItems:'flex-end',gap:4,height}}>
+      {values.map((v,i)=>(
+        <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+          <div style={{
+            width:'100%',borderRadius:'4px 4px 0 0',
+            background:`linear-gradient(to top,${color},${color}88)`,
+            height:`${(v/max)*100}%`,minHeight:4,
+            boxShadow:`0 0 8px ${color}44`,
+            transition:'height 0.5s ease'
+          }}/>
+          <span style={{fontFamily:'var(--mono)',fontSize:8,color:'var(--fg3)'}}>{labels[i]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CompareChart({labels, values, color}) {
+  const max=Math.max(...values,0.1);
+  return (
+    <div style={{display:'flex',gap:12,alignItems:'flex-end',height:60}}>
+      {values.map((v,i)=>(
+        <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:11,fontWeight:600,color:i===1?color:'var(--fg3)'}}>{v}</div>
+          <div style={{
+            width:'100%',borderRadius:6,
+            background:i===1?`linear-gradient(to top,${color},${color}88)`:'var(--bg3)',
+            height:`${(v/max)*48}px`,minHeight:6,
+            boxShadow:i===1?`0 0 12px ${color}44`:'none'
+          }}/>
+          <div style={{fontFamily:'var(--mono)',fontSize:8,color:'var(--fg3)',textAlign:'center'}}>{labels[i]}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── NOW SCREEN ────────────────────────────────────────────────────────────────
+
+function NowScreen() {
+  const [mood, setMood] = useState(7);
+  const [energy, setEnergy] = useState(6);
+  const [activeActs, setActiveActs] = useState(['work','sport']);
+  const [showMoodSheet, setShowMoodSheet] = useState(false);
+  const toggle = id => setActiveActs(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+
+  const trackedActs = ALL_ACTS.filter(a=>a.mins>0);
+  const totalMins = trackedActs.reduce((s,a)=>s+a.mins,0);
+  const chargeMin = trackedActs.filter(a=>a.energy==='charge').reduce((s,a)=>s+a.mins,0);
+  const drainMin = trackedActs.filter(a=>a.energy==='drain').reduce((s,a)=>s+a.mins,0);
+
+  return (
+    <div className="scrollable" style={{padding:'0 0 16px'}}>
+      {/* Header */}
+      <div style={{padding:'8px 20px 0'}}>
+        <div className="label" style={{marginBottom:4}}>{DATE_RU}</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{fontFamily:'var(--display)',fontSize:22,fontWeight:700,color:'var(--fg)'}}>
+            Осознанная жизнь
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,
+            background:'rgba(249,115,22,0.12)',padding:'5px 10px',borderRadius:100,
+            border:'1px solid rgba(249,115,22,0.2)'}}>
+            <span style={{fontSize:13}}>🔥</span>
+            <span style={{fontFamily:'var(--mono)',fontSize:12,fontWeight:600,color:'#f97316'}}>7</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Mood + Donut row */}
+      <div style={{padding:'14px 20px 0',display:'flex',gap:12,alignItems:'stretch'}}>
+        {/* Mood card */}
+        <button onClick={()=>setShowMoodSheet(true)} style={{
+          flex:1,background:'var(--bg2)',borderRadius:18,
+          border:'1px solid var(--border)',padding:'14px',
+          cursor:'pointer',textAlign:'left',transition:'border-color 0.2s',
+        }}>
+          <div className="label" style={{marginBottom:8}}>состояние</div>
+          <div style={{
+            fontSize:44,fontWeight:700,lineHeight:1,
+            color:MC[mood],fontFamily:'var(--display)',
+            textShadow:`0 0 20px ${MC[mood]}55`
+          }}>{mood}</div>
+          <div style={{fontFamily:'var(--display)',fontSize:13,color:'var(--fg2)',marginTop:4}}>{ML[mood]}</div>
+          <div style={{display:'flex',gap:2,marginTop:10}}>
+            {Array.from({length:11},(_,i)=>(
+              <div key={i} style={{
+                flex:1,height:3,borderRadius:1,
+                background:i<=mood?MC[i]:'var(--bg3)',
+                transition:'background 0.2s'
+              }}/>
+            ))}
+          </div>
+          <div style={{marginTop:8,display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontSize:10}}>⚡</span>
+            <div style={{flex:1,height:2,background:'var(--bg3)',borderRadius:1,overflow:'hidden'}}>
+              <div style={{height:'100%',width:`${energy*10}%`,background:'#f59e0b',borderRadius:1}}/>
+            </div>
+            <span style={{fontFamily:'var(--mono)',fontSize:9,color:'#f59e0b'}}>{energy}</span>
+          </div>
+        </button>
+
+        {/* Donut card */}
+        <div style={{
+          width:120,background:'var(--bg2)',borderRadius:18,
+          border:'1px solid var(--border)',padding:'12px 8px',
+          display:'flex',flexDirection:'column',alignItems:'center',gap:6
+        }}>
+          <div className="label">сегодня</div>
+          <div style={{position:'relative',width:80,height:80}}>
+            <DonutSegments acts={trackedActs} size={80}/>
+            <div style={{
+              position:'absolute',inset:0,display:'flex',flexDirection:'column',
+              alignItems:'center',justifyContent:'center'
+            }}>
+              <span style={{fontFamily:'var(--mono)',fontSize:13,fontWeight:600,color:'var(--fg)'}}>
+                {Math.floor(totalMins/60)}:{String(totalMins%60).padStart(2,'0')}
+              </span>
+            </div>
+          </div>
+          {/* Energy balance */}
+          <div style={{width:'100%'}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+              <span style={{fontFamily:'var(--mono)',fontSize:7,color:'#10b981'}}>▲ {Math.round(chargeMin/60*10)/10}ч</span>
+              <span style={{fontFamily:'var(--mono)',fontSize:7,color:'#f43f5e'}}>▼ {Math.round(drainMin/60*10)/10}ч</span>
+            </div>
+            <div style={{height:3,borderRadius:2,background:'var(--bg3)',overflow:'hidden',display:'flex'}}>
+              <div style={{height:'100%',background:'#10b981',width:`${chargeMin/(chargeMin+drainMin)*100}%`}}/>
+              <div style={{height:'100%',background:'#f43f5e',flex:1}}/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Week sparkline */}
+      <div style={{padding:'12px 20px 0'}}>
+        <div style={{
+          background:'var(--bg2)',borderRadius:18,
+          border:'1px solid var(--border)',padding:'14px'
+        }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div className="label">настроение / 7 дней</div>
+            <div style={{display:'flex',gap:10}}>
+              <span style={{fontFamily:'var(--mono)',fontSize:9,color:MC[7]}}>avg 7.1</span>
+              <span style={{fontFamily:'var(--mono)',fontSize:9,color:'#4b5563'}}>↑14%</span>
+            </div>
+          </div>
+          <Sparkline data={WEEK_MOOD} color={MC[7]} width={310} height={40}/>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
+            {WEEK_DAYS.map(d=><span key={d} style={{fontFamily:'var(--mono)',fontSize:8,color:'var(--fg3)'}}>{d}</span>)}
+          </div>
+        </div>
+      </div>
+
+      {/* Activity grid */}
+      <div style={{padding:'12px 20px 0'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <div className="label">активности</div>
+          {activeActs.length>0 && (
+            <span style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--primary)'}}>
+              {activeActs.length} активны
+            </span>
+          )}
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
+          {ALL_ACTS.map(a=>{
+            const on=activeActs.includes(a.id);
+            const tracked=a.mins>0;
+            return (
+              <button key={a.id} className={`act-card ${on?'active':''}`}
+                onClick={()=>toggle(a.id)}
+                style={{
+                  color:a.color,
+                  background:on?`${a.color}14`:'var(--bg2)',
+                  borderColor:on?a.color:'var(--border)',
+                  boxShadow:on?`0 0 12px ${a.color}22`:'none',
+                }}>
+                {/* Running indicator */}
+                {on && (
+                  <div style={{
+                    position:'absolute',top:6,right:6,
+                    width:5,height:5,borderRadius:'50%',
+                    background:a.color,animation:'pulse 2s infinite',
+                    boxShadow:`0 0 6px ${a.color}`
+                  }}/>
+                )}
+                <span style={{fontSize:22,lineHeight:1}}>{a.emoji}</span>
+                <span style={{
+                  fontSize:9,fontWeight:600,textAlign:'center',lineHeight:1.2,
+                  color:on?a.color:'var(--fg3)',
+                  fontFamily:'var(--display)'
+                }}>{a.label}</span>
+                {tracked && (
+                  <span style={{
+                    fontFamily:'var(--mono)',fontSize:8,
+                    color:a.color+'99'
+                  }}>
+                    {Math.floor(a.mins/60)>0?`${Math.floor(a.mins/60)}ч`:''}{a.mins%60}м
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Quick insight */}
+      <div style={{padding:'12px 20px 0'}}>
+        <div style={{
+          background:'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))',
+          borderRadius:18,padding:'14px',
+          border:'1px solid rgba(99,102,241,0.15)',
+          display:'flex',gap:12,alignItems:'center'
+        }}>
+          <div style={{
+            width:40,height:40,borderRadius:12,flexShrink:0,
+            background:'rgba(99,102,241,0.2)',
+            display:'flex',alignItems:'center',justifyContent:'center',fontSize:20
+          }}>💡</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:600,color:'var(--fg)',marginBottom:2}}>
+              Паттерн обнаружен
+            </div>
+            <div style={{fontSize:11,color:'var(--fg2)',lineHeight:1.5}}>
+              В дни со спортом настроение выше на 1.5 пункта — 14 наблюдений
+            </div>
+          </div>
+          <span style={{color:'#6366f1',fontSize:16}}>›</span>
+        </div>
+      </div>
+
+      {/* Mood sheet */}
+      {showMoodSheet && (
+        <div style={{
+          position:'absolute',inset:0,background:'rgba(0,0,0,0.6)',
+          zIndex:50,display:'flex',alignItems:'flex-end',
+          animation:'fadeUp 0.2s ease'
+        }} onClick={()=>setShowMoodSheet(false)}>
+          <div style={{
+            background:'var(--bg2)',borderRadius:'24px 24px 0 0',
+            width:'100%',padding:'20px 20px 36px',
+            animation:'fadeUp 0.3s ease',border:'1px solid var(--border)'
+          }} onClick={e=>e.stopPropagation()}>
+            <div style={{width:36,height:4,background:'var(--bg3)',borderRadius:2,margin:'0 auto 20px'}}/>
+            <div style={{fontFamily:'var(--display)',fontSize:16,fontWeight:600,color:'var(--fg)',marginBottom:16}}>
+              Снимок состояния
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                <div className="label">настроение</div>
+                <span style={{fontFamily:'var(--mono)',fontSize:11,color:MC[mood]}}>{mood} — {ML[mood]}</span>
+              </div>
+              <div style={{display:'flex',gap:3}}>
+                {Array.from({length:11},(_,i)=>(
+                  <button key={i} onClick={()=>setMood(i)} style={{
+                    flex:1,height:12+i*2,borderRadius:3,border:'none',cursor:'pointer',
+                    background:i<=mood?MC[i]:'var(--bg3)',
+                    opacity:i<=mood?1:0.4,transition:'all 0.1s'
+                  }}/>
+                ))}
+              </div>
+            </div>
+            <div style={{marginBottom:20}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                <div className="label">энергия</div>
+                <span style={{fontFamily:'var(--mono)',fontSize:11,color:'#f59e0b'}}>{energy}/10</span>
+              </div>
+              <div style={{display:'flex',gap:3}}>
+                {Array.from({length:11},(_,i)=>(
+                  <button key={i} onClick={()=>setEnergy(i)} style={{
+                    flex:1,height:12+i*2,borderRadius:3,border:'none',cursor:'pointer',
+                    background:i<=energy?'#f59e0b':'var(--bg3)',
+                    opacity:i<=energy?1:0.4,transition:'all 0.1s'
+                  }}/>
+                ))}
+              </div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div className="label" style={{marginBottom:8}}>что повлияло?</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {['💼 Работа','😴 Отдых','👥 Общение','🏃 Физическое','⚡ Событие','✨ Само по себе'].map(t=>(
+                  <button key={t} style={{
+                    padding:'6px 12px',borderRadius:100,fontSize:11,fontWeight:500,
+                    border:'1px solid var(--border)',background:'var(--bg3)',
+                    color:'var(--fg2)',cursor:'pointer'
+                  }}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <button onClick={()=>setShowMoodSheet(false)} style={{
+              width:'100%',padding:'14px',borderRadius:14,
+              background:'var(--primary)',color:'white',border:'none',
+              fontSize:14,fontWeight:600,cursor:'pointer',
+              fontFamily:'var(--display)'
+            }}>Записать</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── INSIGHTS SCREEN ───────────────────────────────────────────────────────────
+
+function InsightsScreen() {
+  const [filter, setFilter] = useState('all');
+  const [expanded, setExpanded] = useState('1');
+
+  const LAYER_COLORS = {patterns:'#3b82f6',energy:'#f97316',lenses:'#8b5cf6',base:'#4b5563'};
+  const LAYER_LABELS = {patterns:'Паттерны',energy:'Энергия',lenses:'Линзы',base:'База'};
+
+  const filtered = filter==='all' ? INSIGHTS : INSIGHTS.filter(i=>i.layer===filter);
+  const lockedCount = INSIGHTS.filter(i=>i.locked).length;
+
+  return (
+    <div className="scrollable" style={{padding:'0 0 20px'}}>
+      {/* Header */}
+      <div style={{padding:'8px 20px 0'}}>
+        <div className="label" style={{marginBottom:4}}>аналитика · последние 30 дней</div>
+        <div style={{fontFamily:'var(--display)',fontSize:22,fontWeight:700,color:'var(--fg)',marginBottom:12}}>
+          Инсайты
+        </div>
+
+        {/* Summary row */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
+          {[
+            {label:'ПАТТЕРНОВ',v:'7',c:'#3b82f6'},
+            {label:'КОРРЕЛЦИЙ',v:'4',c:'#10b981'},
+            {label:'ЗАПЕРТО',v:`${lockedCount}`,c:'#8b5cf6'},
+          ].map((s,i)=>(
+            <div key={i} style={{
+              background:'var(--bg2)',borderRadius:14,padding:'10px 12px',
+              border:'1px solid var(--border)'
+            }}>
+              <div className="label" style={{marginBottom:4,color:s.c+'99'}}>{s.label}</div>
+              <div style={{fontFamily:'var(--mono)',fontSize:22,fontWeight:600,color:s.c}}>{s.v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Week mood + energy overlay */}
+        <div style={{
+          background:'var(--bg2)',borderRadius:18,padding:'14px',
+          border:'1px solid var(--border)',marginBottom:14
+        }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div className="label">настроение vs энергия</div>
+            <div style={{display:'flex',gap:10}}>
+              <span style={{fontFamily:'var(--mono)',fontSize:8,color:MC[7]}}>● настроение</span>
+              <span style={{fontFamily:'var(--mono)',fontSize:8,color:'#f59e0b'}}>● энергия</span>
+            </div>
+          </div>
+          <div style={{position:'relative',height:50}}>
+            <Sparkline data={WEEK_MOOD} color={MC[7]} width={310} height={50}/>
+            <div style={{position:'absolute',top:0,left:0}}>
+              <Sparkline data={WEEK_ENERGY} color="#f59e0b" width={310} height={50}/>
+            </div>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
+            {WEEK_DAYS.map(d=><span key={d} style={{fontFamily:'var(--mono)',fontSize:8,color:'var(--fg3)'}}>{d}</span>)}
+          </div>
+        </div>
+
+        {/* Layer filters */}
+        <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2,marginBottom:14}}>
+          {[
+            {id:'all',label:'Все'},
+            {id:'patterns',label:'Паттерны',c:'#3b82f6'},
+            {id:'energy',label:'Энергия',c:'#f97316'},
+            {id:'lenses',label:'Линзы',c:'#8b5cf6'},
+          ].map(f=>(
+            <button key={f.id} onClick={()=>setFilter(f.id)} style={{
+              padding:'6px 12px',borderRadius:100,flexShrink:0,
+              border:`1.5px solid ${filter===f.id?(f.c||'var(--fg)'):'var(--border)'}`,
+              background:filter===f.id?`${f.c||'#fff'}15`:'transparent',
+              color:filter===f.id?(f.c||'var(--fg)'):'var(--fg3)',
+              fontFamily:'var(--mono)',fontSize:10,fontWeight:500,
+              cursor:'pointer',transition:'all 0.15s',letterSpacing:'0.04em'
+            }}>{f.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Insights list */}
+      <div style={{padding:'0 20px',display:'flex',flexDirection:'column',gap:10}}>
+        {filtered.map(ins=>{
+          const lc=LAYER_COLORS[ins.layer]||'#4b5563';
+          const isExp=expanded===ins.id;
+          return (
+            <div key={ins.id} className="insight-card" style={{
+              borderLeft:`3px solid ${lc}`,
+              filter:ins.locked?'none':'none',
+            }}>
+              {/* Header row */}
+              <button onClick={()=>setExpanded(isExp?null:ins.id)} style={{
+                width:'100%',padding:'14px 16px',textAlign:'left',
+                border:'none',background:'transparent',cursor:'pointer',
+                display:'flex',gap:12,alignItems:'flex-start'
+              }}>
+                {/* Icon */}
+                <div style={{
+                  width:40,height:40,borderRadius:12,flexShrink:0,
+                  background:`${ins.color}18`,
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  fontSize:20,
+                  boxShadow:isExp?`0 0 16px ${ins.color}33`:'none',
+                  transition:'box-shadow 0.3s'
+                }}>{ins.icon}</div>
+
+                <div style={{flex:1,minWidth:0}}>
+                  {ins.locked && (
+                    <div style={{
+                      display:'inline-flex',alignItems:'center',gap:4,
+                      padding:'2px 7px',borderRadius:4,marginBottom:4,
+                      background:`${lc}18`,
+                      fontFamily:'var(--mono)',fontSize:8,color:lc,letterSpacing:'0.06em'
+                    }}>🔒 {LAYER_LABELS[ins.layer]}</div>
+                  )}
+                  <div style={{
+                    fontFamily:'var(--display)',fontSize:13,fontWeight:600,color:'var(--fg)',
+                    marginBottom:2,filter:ins.locked?'blur(3px)':'none'
+                  }}>{ins.title}</div>
+                  <div style={{fontSize:11,color:'var(--fg3)',marginBottom:6,filter:ins.locked?'blur(2px)':'none'}}>
+                    {ins.subtitle}
+                  </div>
+                  {/* Strength bar */}
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{
+                      padding:'2px 6px',borderRadius:4,
+                      background:`${lc}15`,
+                      fontFamily:'var(--mono)',fontSize:8,color:lc
+                    }}>{LAYER_LABELS[ins.layer]}</div>
+                    <div style={{flex:1,height:3,background:'var(--bg3)',borderRadius:2,overflow:'hidden'}}>
+                      <div style={{
+                        height:'100%',borderRadius:2,background:ins.color,
+                        width:`${ins.strength*100}%`,
+                        boxShadow:`0 0 6px ${ins.color}55`
+                      }}/>
+                    </div>
+                    <span style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--fg3)'}}>
+                      {Math.round(ins.strength*100)}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Delta badge */}
+                <div style={{
+                  flexShrink:0,textAlign:'center',
+                  opacity:ins.locked?0.3:1
+                }}>
+                  <div style={{
+                    fontFamily:'var(--mono)',fontSize:14,fontWeight:700,
+                    color:ins.delta?.startsWith('+')&&!ins.delta?.startsWith('+0')?'#10b981':ins.delta?.startsWith('-')?'#f43f5e':'#f59e0b'
+                  }}>{ins.delta}</div>
+                  <div style={{fontFamily:'var(--mono)',fontSize:8,color:'var(--fg3)',maxWidth:40,lineHeight:1.2}}>{ins.deltaLabel}</div>
+                </div>
+              </button>
+
+              {/* Expanded */}
+              {isExp && !ins.locked && (
+                <div style={{
+                  padding:'0 16px 16px',borderTop:'1px solid var(--border)',
+                  animation:'fadeUp 0.25s ease'
+                }}>
+                  {/* Chart */}
+                  <div style={{
+                    background:'var(--bg3)',borderRadius:14,
+                    padding:'14px',marginBottom:12,marginTop:12
+                  }}>
+                    {ins.chart.type==='bar' && (
+                      <MiniBarChart labels={ins.chart.labels} values={ins.chart.values} color={ins.chart.color}/>
+                    )}
+                    {ins.chart.type==='line' && (
+                      <>
+                        <Sparkline data={ins.chart.values} color={ins.chart.color} width={290} height={50}/>
+                        <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
+                          {ins.chart.labels.map(l=><span key={l} style={{fontFamily:'var(--mono)',fontSize:8,color:'var(--fg3)'}}>{l}</span>)}
+                        </div>
+                      </>
+                    )}
+                    {ins.chart.type==='compare' && (
+                      <CompareChart labels={ins.chart.labels} values={ins.chart.values} color={ins.chart.color}/>
+                    )}
+                  </div>
+                  {/* Advice */}
+                  <div style={{
+                    padding:'10px 12px',borderRadius:12,
+                    background:`${ins.color}0f`,
+                    border:`1px solid ${ins.color}22`,
+                    fontSize:12,color:'var(--fg2)',lineHeight:1.6
+                  }}>
+                    <span style={{color:ins.color,fontWeight:600}}>→ </span>{ins.advice}
+                  </div>
+                </div>
+              )}
+
+              {/* Locked CTA */}
+              {ins.locked && (
+                <div style={{padding:'0 16px 14px'}}>
+                  <button style={{
+                    width:'100%',padding:'10px',borderRadius:12,
+                    background:`linear-gradient(135deg,${lc},${lc}cc)`,
+                    color:'white',border:'none',
+                    fontFamily:'var(--display)',fontSize:12,fontWeight:600,cursor:'pointer'
+                  }}>
+                    Открыть слой {LAYER_LABELS[ins.layer]} →
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── FEED SCREEN ───────────────────────────────────────────────────────────────
+
+function FeedScreen() {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const weekDays = useMemo(()=>{
+    const today=new Date(), dow=today.getDay()===0?6:today.getDay()-1;
+    const mon=new Date(today); mon.setDate(today.getDate()-dow);
+    return Array.from({length:7},(_,i)=>{
+      const d=new Date(mon); d.setDate(mon.getDate()+i);
+      return {
+        date:d.toISOString().split('T')[0],
+        dayNum:d.getDate(),
+        dayName:['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i],
+        isToday:d.toISOString().split('T')[0]===todayStr,
+        mood:WEEK_MOOD[i],
+        energy:WEEK_ENERGY[i],
+      };
+    });
+  },[]);
+
+  return (
+    <div className="scrollable" style={{padding:'0 0 20px'}}>
+      <div style={{padding:'8px 20px 0'}}>
+        <div className="label" style={{marginBottom:4}}>история</div>
+        <div style={{fontFamily:'var(--display)',fontSize:22,fontWeight:700,color:'var(--fg)',marginBottom:14}}>
+          Лента
+        </div>
+
+        {/* Week grid */}
+        <div style={{
+          background:'var(--bg2)',borderRadius:18,padding:'14px',
+          border:'1px solid var(--border)',marginBottom:14
+        }}>
+          <div className="label" style={{marginBottom:10}}>эта неделя</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4,marginBottom:8}}>
+            {weekDays.map(d=>(
+              <div key={d.date} style={{
+                display:'flex',flexDirection:'column',alignItems:'center',gap:4,
+                padding:'8px 4px',borderRadius:10,
+                background:d.isToday?`${MC[d.mood]}15`:'transparent',
+                border:`1px solid ${d.isToday?MC[d.mood]+'44':'transparent'}`,
+                cursor:'pointer'
+              }}>
+                <span style={{fontFamily:'var(--mono)',fontSize:8,color:'var(--fg3)'}}>{d.dayName}</span>
+                <span style={{fontFamily:'var(--mono)',fontSize:11,color:d.isToday?MC[d.mood]:'var(--fg2)'}}>{d.dayNum}</span>
+                <div style={{
+                  width:24,height:24,borderRadius:'50%',
+                  background:MC[d.mood],
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  color:'white',fontFamily:'var(--mono)',fontSize:10,fontWeight:600,
+                  boxShadow:`0 0 8px ${MC[d.mood]}55`
+                }}>{d.mood}</div>
+                {/* Energy dot */}
+                <div style={{
+                  width:16,height:3,borderRadius:2,
+                  background:`linear-gradient(90deg,#f59e0b,#f59e0b${Math.round(d.energy/10*255).toString(16).padStart(2,'0')})`,
+                  opacity:0.7
+                }}/>
+              </div>
+            ))}
+          </div>
+          {/* Dual sparkline */}
+          <div style={{position:'relative',height:40,marginBottom:4}}>
+            <Sparkline data={WEEK_MOOD} color={MC[7]} width={318} height={40}/>
+            <div style={{position:'absolute',top:0,left:0}}>
+              <Sparkline data={WEEK_ENERGY} color="#f59e0b" width={318} height={40}/>
+            </div>
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div style={{
+          background:'var(--bg2)',borderRadius:18,padding:'14px',
+          border:'1px solid var(--border)',marginBottom:14
+        }}>
+          <div className="label" style={{marginBottom:12}}>сводка недели</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            {[
+              {icon:'😊',label:'Среднее настроение',v:'7.1/10',c:MC[7]},
+              {icon:'😴',label:'Средний сон',v:'7.2ч',c:'#6366f1'},
+              {icon:'🚶',label:'Всего шагов',v:'58 947',c:'#10b981'},
+              {icon:'🏋️',label:'Тренировки',v:'4 из 7',c:'#f59e0b'},
+            ].map((s,i)=>(
+              <div key={i} style={{display:'flex',gap:10,alignItems:'center'}}>
+                <span style={{fontSize:22}}>{s.icon}</span>
+                <div>
+                  <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--fg3)',marginBottom:2}}>{s.label}</div>
+                  <div style={{fontFamily:'var(--display)',fontSize:16,fontWeight:600,color:s.c}}>{s.v}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Energy balance */}
+          <div style={{
+            marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)',
+            display:'flex',alignItems:'center',gap:8
+          }}>
+            <span style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--fg3)',flex:1}}>ЭНЕРГОБАЛАНС</span>
+            <span style={{fontFamily:'var(--mono)',fontSize:9,color:'#10b981'}}>⚡ 8.5ч</span>
+            <span style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--fg3)'}}>vs</span>
+            <span style={{fontFamily:'var(--mono)',fontSize:9,color:'#f43f5e'}}>🔋 5.2ч</span>
+          </div>
+        </div>
+
+        {/* Activity distribution */}
+        <div style={{
+          background:'var(--bg2)',borderRadius:18,padding:'14px',
+          border:'1px solid var(--border)'
+        }}>
+          <div className="label" style={{marginBottom:12}}>распределение времени</div>
+          {ALL_ACTS.filter(a=>a.mins>0).map((a,i,arr)=>{
+            const max=Math.max(...arr.map(x=>x.mins));
+            return (
+              <div key={a.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                <span style={{fontSize:14,width:20,textAlign:'center'}}>{a.emoji}</span>
+                <span style={{fontFamily:'var(--display)',fontSize:11,color:'var(--fg2)',width:60,flexShrink:0}}>{a.label}</span>
+                <div style={{flex:1,height:6,background:'var(--bg3)',borderRadius:3,overflow:'hidden'}}>
+                  <div style={{
+                    height:'100%',borderRadius:3,background:a.color,
+                    width:`${(a.mins/max)*100}%`,
+                    boxShadow:`0 0 8px ${a.color}44`,
+                    transition:'width 0.5s ease'
+                  }}/>
+                </div>
+                <span style={{fontFamily:'var(--mono)',fontSize:9,color:a.color,width:28,textAlign:'right'}}>
+                  {a.mins}м
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+
+const NAV = [
+  {id:'now',  icon:'◎', label:'Сейчас'},
+  {id:'feed', icon:'◫', label:'Лента'},
+  {id:'insights', icon:'◈', label:'Инсайты'},
+  {id:'evening',  icon:'◑', label:'Вечер'},
+  {id:'profile',  icon:'◉', label:'Профиль'},
+];
+
+function App() {
+  const [screen, setScreen] = useState('now');
+
+  return (
+    <div className="phone">
+      <div className="screen">
+        <div className="notch"/>
+        <div className="status-bar">
+          <span>{TIME}</span>
+          <span>●●● 87%</span>
+        </div>
+        <div className="screen-body">
+          <div style={{flex:1,overflow:'hidden',position:'relative'}}>
+            {screen==='now' && <NowScreen/>}
+            {screen==='feed' && <FeedScreen/>}
+            {screen==='insights' && <InsightsScreen/>}
+            {screen==='evening' && (
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',padding:24,gap:12}}>
+                <div style={{fontSize:48}}>🌙</div>
+                <div style={{fontFamily:'var(--display)',fontSize:18,fontWeight:600,color:'var(--fg)',textAlign:'center'}}>Вечерний ритуал</div>
+                <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--fg3)',textAlign:'center'}}>В разработке — будет здесь</div>
+              </div>
+            )}
+            {screen==='profile' && (
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',padding:24,gap:12}}>
+                <div style={{fontSize:48}}>◉</div>
+                <div style={{fontFamily:'var(--display)',fontSize:18,fontWeight:600,color:'var(--fg)',textAlign:'center'}}>Профиль</div>
+                <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--fg3)',textAlign:'center'}}>В разработке — будет здесь</div>
+              </div>
+            )}
+          </div>
+          <div className="bottom-nav">
+            {NAV.map(n=>(
+              <button key={n.id} className={`nav-btn ${screen===n.id?'active':''}`} onClick={()=>setScreen(n.id)}>
+                <span className="nav-icon" style={{color:screen===n.id?'var(--primary)':'var(--fg3)'}}>{n.icon}</span>
+                <span className="nav-label">{n.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="home-ind"><div className="home-bar"/></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
